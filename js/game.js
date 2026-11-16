@@ -15,7 +15,7 @@ const ROUND_MS = 60000;
 const WRONG_PENALTY_MS = 3000;
 const SKIP_PENALTY_MS = 1000;
 const FAST_MS = 8000; // answers faster than this earn a speed bonus
-const HIGHLIGHT = "#a78bfa";
+const HIGHLIGHT = "#26bbff";
 const MODES = {
   spot: {
     label: "3D Spot",

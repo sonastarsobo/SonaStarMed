@@ -37,6 +37,9 @@ export const PALETTE = [
   "#ffbe0b",
   "#06d6a0",
 ];
+// Colour of the parts a student has picked during a quiz: electric cyan stands out against
+// bone, skin, muscle red and nerve yellow.
+export const PICK_COLOR = "#00e1ff";
 export const TYPE_LABEL = {
   MULTIPLE_CHOICE: "Multiple choice",
   IDENTIFY_3D: "3D identification",
@@ -46,6 +49,11 @@ export const TYPE_LABEL = {
   MULTI_STRUCTURE: "Select multiple structures",
   SEQUENCE: "Sequence",
 };
+// Question types teachers can create. Traditional multiple choice is no longer offered;
+// old MCQ questions keep their label so past results still display correctly.
+export const CREATE_TYPES = Object.keys(TYPE_LABEL).filter(
+  (t) => t !== "MULTIPLE_CHOICE",
+);
 export const IS3D = new Set([
   "IDENTIFY_3D",
   "FIND_STRUCTURE",
@@ -292,7 +300,7 @@ export class QuestionView {
       this.body.querySelector("#sel").innerHTML = r
         ? `You selected: <b>${esc(r.name)}</b>`
         : '<span class="muted">Click the structure on the 3D model.</span>';
-      this.scene?.viewer.setMarks(r ? this.scene.itemsFor([r], "#ff9f1c") : []);
+      this.scene?.viewer.setMarks(r ? this.scene.itemsFor([r], PICK_COLOR) : []);
       this.refreshCheck();
     };
     this.body.innerHTML = '<div id="sel" class="feedback"></div>';
@@ -325,7 +333,7 @@ export class QuestionView {
             if (!this.immediate) this.emit(true);
           }),
       );
-      this.scene?.viewer.setMarks(this.scene.itemsFor(rows, "#ff9f1c"));
+      this.scene?.viewer.setMarks(this.scene.itemsFor(rows, PICK_COLOR));
       this.refreshCheck();
     };
     this.body.innerHTML = '<div id="sel" class="feedback"></div>';

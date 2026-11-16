@@ -191,17 +191,34 @@ dd {
 #tree summary.node::-webkit-details-marker {
   display: none;
 }
-#tree summary.node::before {
-  content: "\25B8";
-  width: 12px;
+/* expand / collapse arrow: a real button so it can be clicked on its own */
+#tree .node .tw,
+#tree .node .tw-sp {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 5px;
+}
+#tree .node .tw {
   color: var(--muted);
+  font-size: 10px;
+  transition: transform 0.15s, background 0.15s, color 0.15s;
 }
-#tree details[open] > summary.node::before {
-  content: "\25BE";
+#tree .node .tw::before {
+  content: "\25B6";
 }
-#tree li.node::before {
-  content: "";
-  width: 12px;
+#tree details[open] > summary.node .tw {
+  transform: rotate(90deg);
+}
+#tree .node .tw:hover {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.12);
+}
+#tree .node.active .tw {
+  color: #fff;
 }
 
 #sysbar {
@@ -408,7 +425,7 @@ dd {
 #viewer,
 #stage {
   border: 1px solid var(--line);
-  background: radial-gradient(ellipse 70% 60% at 50% 45%, #1c1b24 0%, #0c0c10 60%, #050506 100%);
+  background: radial-gradient(ellipse 70% 60% at 50% 45%, #202026 0%, #16161b 60%, #101014 100%);
 }
 #viewer::after {
   content: "";
@@ -653,7 +670,7 @@ dd {
 }
 .btn.kbd-hit {
   border-color: var(--brand) !important;
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.3) !important;
+  box-shadow: 0 0 0 3px rgba(38, 187, 255, 0.3) !important;
 }
 #helpbox {
   max-height: calc(100% - 70px);
@@ -700,4 +717,79 @@ dd {
   .tools .btn kbd {
     display: none;
   }
+}
+
+/* ---------- information panel: chips, audio, links ---------- */
+#info .info-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 2px 0 12px;
+}
+#info .chip {
+  display: inline-flex;
+  padding: 2px 10px;
+  border-radius: 99px;
+  font-size: 11.5px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+}
+.audio-bar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 8px;
+  margin-bottom: 4px;
+  border-radius: 12px;
+  background: rgba(38, 187, 255, 0.07);
+  border: 1px solid rgba(38, 187, 255, 0.2);
+}
+.audio-bar .btn {
+  padding: 6px 12px;
+  font-size: 12.5px;
+}
+.audio-bar select {
+  width: auto;
+  padding: 5px 8px;
+  font-size: 12.5px;
+  margin-left: auto;
+}
+#info dd {
+  border-radius: 6px;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+#info dd.reading {
+  background: rgba(38, 187, 255, 0.1);
+  box-shadow: -3px 0 0 var(--brand);
+  padding-left: 6px;
+}
+#info .linkish {
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--brand);
+  font: inherit;
+  font-size: 12.5px;
+  padding: 2px 9px;
+  border-radius: 99px;
+  cursor: pointer;
+  margin: 0 4px 4px 0;
+}
+#info .linkish:hover {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+#info .gen-note {
+  margin-top: 16px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-size: 11.5px;
+  color: var(--muted);
+}
+/* the expand arrow is always fully visible (other row buttons fade until hover) */
+#tree .node button.tw {
+  opacity: 1;
+  padding: 0;
+  font-size: 10px;
 }

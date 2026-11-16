@@ -6,42 +6,58 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  font-weight: 600;
+  font-family: var(--display);
+  font-size: 15px;
+  font-weight: 700;
   letter-spacing: -0.01em;
 }
+.auth-head .eyebrow .logo {
+  width: 28px;
+  height: 28px;
+  font-size: 13px;
+}
+/* highlighted phrase in the headline, like "Join the …" */
 .auth h1 em {
-  font-family: var(--serif);
-  font-style: italic;
-  font-weight: 400;
-  font-size: 1.15em;
-  letter-spacing: -0.01em;
+  font-style: normal;
   background: var(--grad);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 .auth .sub {
-  margin: 6px 0 10px;
-  color: var(--muted);
-  font-size: 14px;
+  margin: 8px 0 12px;
+  color: var(--ink-2);
+  font-size: 15px;
 }
 .auth .foot {
-  margin-top: 22px;
+  margin-top: 26px;
   padding-top: 18px;
   border-top: 1px solid var(--line);
   text-align: center;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--muted);
 }
+.auth .foot a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+/* soft magenta / violet ambient light behind the card */
 .auth .glow {
   position: fixed;
-  width: 520px;
-  height: 520px;
+  width: 760px;
+  height: 760px;
   left: 50%;
   top: 50%;
-  transform: translate(-50%, -60%);
-  background: radial-gradient(circle, rgba(139, 92, 246, 0.25), rgba(34, 211, 238, 0.08) 45%, transparent 70%);
-  filter: blur(40px);
+  transform: translate(-30%, -40%);
+  background:
+    radial-gradient(circle at 30% 60%, rgba(190, 70, 160, 0.32), transparent 55%),
+    radial-gradient(circle at 70% 35%, rgba(130, 90, 220, 0.22), transparent 55%);
+  filter: blur(60px);
   pointer-events: none;
   z-index: -1;
+}
+.auth-links {
+  margin-top: 10px;
+  text-align: right;
+  font-size: 13.5px;
 }

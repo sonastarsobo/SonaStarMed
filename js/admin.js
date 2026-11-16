@@ -24,10 +24,20 @@ import {
   QuestionView,
   PALETTE,
   TYPE_LABEL,
+  CREATE_TYPES,
   IS3D,
   itemsFromObjects,
 } from "./assessment.js";
 import { getModelUrl } from "./anatomy.js";
+import {
+  studentDetail,
+  quizReport,
+  studentPerformanceTable,
+  wireStudentRows,
+  openAccountCreator,
+  resetPasswordFlow,
+  loadUsernames,
+} from "./admin-people.js";
 
 const db = async (req) => {
   const { data, error } = await req;
@@ -36,7 +46,7 @@ const db = async (req) => {
 };
 const chip = (t, c = "") => `<span class="chip ${c}">${esc(t)}</span>`;
 const REVIEW_CHIP = { APPROVED: "ok", PENDING: "mid", REJECTED: "bad" };
-const TYPES = Object.keys(TYPE_LABEL);
+const TYPES = CREATE_TYPES; // traditional multiple choice is no longer offered
 const opt = (v, t, sel) =>
   `<option value="${esc(v)}" ${sel ? "selected" : ""}>${esc(t)}</option>`;
 const debounce = (fn, ms = 250) => {
@@ -65,7 +75,7 @@ const closeSheet = () => $("sheet")?.classList.remove("open");
 
 export async function initAdmin(page) {
   const me = await requireAdmin();
-  mountNav(me, page);
+  mountNav(me, { student: "users", "quiz-report": "dashboard" }[page] || page);
   try {
     await PAGES[page](me);
   } catch (e) {
@@ -79,36 +89,39 @@ export async function initAdmin(page) {
 // DASHBOARD
 // ======================================================================
 async function dashboard() {
-  const [o, people] = await Promise.all([
+  const [o, people, quizList] = await Promise.all([
     rpc("admin_overview"),
     rpc("admin_student_stats"),
+    db(supabase.from("quizzes").select("id,title")),
   ]);
+  const quizIdOf = (q) => q.id || q.quiz_id || quizList.find((z) => z.title === q.title)?.id;
   const students = people.filter((p) => p.role === "STUDENT");
   const stat = (v, l, cls = "") =>
     `<div class="stat ${cls}"><b>${v}</b><span>${l}</span></div>`;
   const pending = o.questions.pending_review + o.structures_pending_review;
-  $("root").innerHTML = `<h1>Admin dashboard</h1>
+  $("root").innerHTML = `<h1>Teacher dashboard</h1>
     ${pending ? `<div class="feedback bad" style="margin-bottom:14px"><b>${pending} item(s) awaiting medical review</b>: ${o.questions.pending_review} question(s) <a href="questions.html?review=PENDING">review</a>, ${o.structures_pending_review} structure(s) <a href="anatomy.html?review=PENDING">review</a>.</div>` : ""}
     <div class="grid">${stat(o.students, "Students")}${stat(o.active_users_7d, "Active users (7 days)")}${stat(`${o.quizzes.published} / ${o.quizzes.total}`, "Quizzes published")}${stat(o.questions.total, "Questions in bank")}
       ${stat(o.attempts.total, "Attempts")}${stat(pct(o.avg_score), "Average score")}${stat(pct(o.pass_rate), "Pass rate", "ok")}${stat(pct(o.completion_rate), "Completion rate")}</div>
     <div class="grid two"><section class="card"><h2>Attempts, last 14 days</h2><div id="daily"></div></section><section class="card"><h2>Topic-wise performance</h2><div id="topics"></div></section></div>
-    <section class="card" style="margin-top:14px"><h2>Quiz statistics</h2><div class="tblwrap"><table class="tbl"><thead><tr><th>Quiz</th><th>Status</th><th>Attempts</th><th>Avg score</th><th>Pass rate</th><th>Completion</th></tr></thead><tbody>
-      ${o.per_quiz.map((q) => `<tr><td>${esc(q.title)}</td><td>${chip(q.status, q.status === "PUBLISHED" ? "ok" : "")}</td><td>${q.attempts}</td><td>${pct(q.avg)}</td><td>${pct(q.pass_rate)}</td><td>${pct(q.completion_rate)}</td></tr>`).join("") || '<tr><td colspan="6" class="empty">No quizzes yet.</td></tr>'}</tbody></table></div></section>
+    <section class="card" style="margin-top:14px"><div class="card-head"><h2>Quiz statistics</h2><span class="muted small">Click a quiz for its full report</span></div><div class="tblwrap"><table class="tbl"><thead><tr><th>Quiz</th><th>Status</th><th>Attempts</th><th>Avg score</th><th>Pass rate</th><th>Completion</th></tr></thead><tbody>
+      ${o.per_quiz.map((q) => `<tr class="click" data-quiz="${esc(quizIdOf(q) || "")}" title="Open quiz report"><td><b>${esc(q.title)}</b></td><td>${chip(q.status, q.status === "PUBLISHED" ? "ok" : "")}</td><td>${q.attempts}</td><td>${pct(q.avg)}</td><td>${pct(q.pass_rate)}</td><td>${pct(q.completion_rate)}</td></tr>`).join("") || '<tr><td colspan="6" class="empty">No quizzes yet.</td></tr>'}</tbody></table></div></section>
     <div class="grid two" style="margin-top:14px"><section class="card"><h2>Frequently missed questions</h2><div class="tblwrap"><table class="tbl"><thead><tr><th>Question</th><th>Type</th><th>Times seen</th><th>Missed</th></tr></thead><tbody>
       ${o.frequently_wrong.map((q) => `<tr><td>${esc(q.text.slice(0, 90))}</td><td class="small">${esc(TYPE_LABEL[q.type])}</td><td>${q.answered}</td><td><b>${pct(q.wrong_pct)}</b></td></tr>`).join("") || '<tr><td colspan="4" class="empty">No attempts yet.</td></tr>'}</tbody></table></div></section>
-      <section class="card"><h2>Student performance</h2><div class="tblwrap"><table class="tbl"><thead><tr><th>Student</th><th>Attempts</th><th>Average</th><th>Best</th></tr></thead><tbody>
-      ${
-        [...students]
-          .sort((a, b) => (b.avg ?? -1) - (a.avg ?? -1))
-          .slice(0, 10)
-          .map(
-            (s) =>
-              `<tr><td>${esc(s.name)}</td><td>${s.attempts}</td><td>${pct(s.avg)}</td><td>${pct(s.best)}</td></tr>`,
-          )
-          .join("") ||
-        '<tr><td colspan="4" class="empty">No students yet.</td></tr>'
-      }</tbody></table></div>
+      <section class="card"><div class="card-head"><h2>Student performance</h2><span class="muted small">All quizzes combined</span></div><div id="perfTbl"><p class="muted">Loading...</p></div>
       <p class="small"><a href="users.html">All students</a> &middot; <a href="reports.html">Reports</a></p></section></div>`;
+  $("root")
+    .querySelectorAll("tr[data-quiz]")
+    .forEach((tr) => {
+      if (tr.dataset.quiz)
+        tr.onclick = () => (location.href = `quiz-report.html?id=${tr.dataset.quiz}`);
+    });
+  studentPerformanceTable(students, 10)
+    .then((html) => {
+      $("perfTbl").innerHTML = html;
+      wireStudentRows($("perfTbl"));
+    })
+    .catch((e) => ($("perfTbl").innerHTML = `<p class="msg error">${esc(e.message)}</p>`));
   const mx = Math.max(5, ...o.daily.map((d) => d.attempts));
   lineChart(
     $("daily"),
@@ -134,11 +147,13 @@ async function dashboard() {
 // ======================================================================
 async function users(me) {
   $("root").innerHTML =
-    `<h1>Users &amp; batches</h1><div class="tabs" id="tabs"><button data-t="u" aria-selected="true">Users</button><button data-t="b" aria-selected="false">Batches</button></div><div id="tab"></div>`;
+    `<div class="row sp"><h1>Users &amp; batches</h1><button class="btn" id="addStudents">+ Create student accounts</button></div><div class="tabs" id="tabs"><button data-t="u" aria-selected="true">Users</button><button data-t="b" aria-selected="false">Batches</button></div><div id="tab"></div>`;
   let people = [],
     batches = [],
+    usernames = new Map(),
     tab = "u";
   const load = async () => {
+    usernames = await loadUsernames();
     [people, batches] = await Promise.all([
       rpc("admin_student_stats"),
       db(
@@ -150,6 +165,15 @@ async function users(me) {
     ]);
   };
   await load();
+  $("addStudents").onclick = () =>
+    openAccountCreator(
+      openSheet,
+      [...usernames.values(), ...people.map((p) => p.name)],
+      async () => {
+        await load();
+        if (tab === "u") drawUsers();
+      },
+    );
   document.querySelectorAll("#tabs button").forEach(
     (b) =>
       (b.onclick = () => {
@@ -175,24 +199,37 @@ async function users(me) {
           (!$("uRole").value || p.role === $("uRole").value) &&
           (!$("uBatch").value || p.batch_ids.includes($("uBatch").value)) &&
           (!$("uText").value ||
-            (p.name + " " + (p.email || ""))
+            (p.name + " " + (p.email || "") + " " + (usernames.get(p.id) || ""))
               .toLowerCase()
               .includes($("uText").value.toLowerCase())),
       );
     const paint = () => {
+      paintRows();
+      wireStudentRows($("uRows"));
+      $("uRows")
+        .querySelectorAll("[data-pw]")
+        .forEach(
+          (b) =>
+            (b.onclick = () => {
+              const p = people.find((x) => x.id === b.dataset.pw);
+              resetPasswordFlow({ ...p, username: usernames.get(p.id) });
+            }),
+        );
+    };
+    const paintRows = () => {
       $("uRows").innerHTML =
         rows()
           .map(
             (
               p,
-            ) => `<tr><td><b>${esc(p.name)}</b><br><span class="muted small">${esc(p.email || "")}</span></td><td>${chip(p.role, p.role === "ADMIN" ? "brand" : "")}</td>
+            ) => `<tr class="click" data-student="${p.id}" title="Open ${esc(p.name)}'s report"><td><b>${esc(p.name)}</b><br><span class="muted small">${usernames.get(p.id) ? "@" + esc(usernames.get(p.id)) + " &middot; " : ""}${/@students\.sobo\.local$/i.test(p.email || "") ? "no e-mail" : esc(p.email || "")}</span></td><td>${chip(p.role, p.role === "ADMIN" ? "brand" : "")}</td>
         <td>${p.batches.map((n, i) => `<span class="chip">${esc(n)} <button class="btn link" style="padding:0" data-rmb="${p.id}|${p.batch_ids[i]}" aria-label="Remove from batch">&times;</button></span>`).join(" ")}
           <select data-addb="${p.id}" style="width:auto;padding:3px"><option value="">+ batch</option>${batches
             .filter((b) => !p.batch_ids.includes(b.id))
             .map((b) => opt(b.id, b.name))
             .join("")}</select></td>
         <td>${p.attempts}</td><td>${pct(p.avg)}</td><td>${p.passed}</td><td class="small">${p.last_active ? fmtDate(p.last_active) : "-"}</td>
-        <td class="nowrap"><a class="btn small secondary" href="attempts.html?user=${p.id}">Attempts</a>
+        <td class="nowrap"><a class="btn small secondary" href="student.html?id=${p.id}">Report</a>${p.role === "STUDENT" ? ` <button class="btn small secondary" data-pw="${p.id}">Reset password</button>` : ""}
         ${p.id === me.id ? "" : `<button class="btn small secondary" data-role="${p.id}|${p.role === "ADMIN" ? "STUDENT" : "ADMIN"}">${p.role === "ADMIN" ? "Make student" : "Make admin"}</button>`}</td></tr>`,
           )
           .join("") || '<tr><td colspan="8" class="empty">No users.</td></tr>';
@@ -1119,7 +1156,7 @@ async function quizzes() {
               q,
             ) => `<tr><td><b>${esc(q.title)}</b><br><span class="muted small">${esc(q.category || "")} ${chip(titleCase(q.audience))} ${chip(titleCase(q.difficulty), { EASY: "ok", MEDIUM: "mid", HARD: "bad" }[q.difficulty])}</span></td>
         <td>${chip(q.status, STATUS_CHIP[q.status])}</td><td>${q.quiz_questions[0]?.count ?? 0}</td>
-        <td class="small">${fmtDur(q.duration_seconds)} &middot; pass ${pct(q.passing_score)}<br>${q.max_attempts ? q.max_attempts + " attempt(s)" : "unlimited attempts"}${q.immediate_feedback ? "<br>instant feedback" : ""}</td>
+        <td class="small">${fmtDur(q.duration_seconds)} &middot; pass ${pct(q.passing_score)}<br>${q.max_attempts ? q.max_attempts + " attempt(s)" : "unlimited attempts"}${q.immediate_feedback ? "<br>instant feedback" : ""}${q.show_result === false ? "<br>results held back" : ""}</td>
         <td class="small">${q.start_at ? "from " + fmtDay(q.start_at) : "no start"}<br>${q.end_at ? "until " + fmtDay(q.end_at) : "no end"}</td><td>${q.assessment_attempts[0]?.count ?? 0}</td>
         <td class="nowrap"><button class="btn small secondary" data-edit="${q.id}">Edit</button> <a class="btn small secondary" href="../student/assessment.html?preview=${q.id}" target="_blank" rel="noopener">Preview</a>
           <button class="btn small ${q.status === "PUBLISHED" ? "secondary" : ""}" data-pub="${q.id}|${q.status === "PUBLISHED" ? "UNPUBLISHED" : "PUBLISHED"}">${q.status === "PUBLISHED" ? "Unpublish" : "Publish"}</button>
@@ -1160,7 +1197,12 @@ async function quizzes() {
                 const d = await loadDraft(b.dataset.dup);
                 d.id = null;
                 d.title += " (copy)";
-                await rpc("admin_save_quiz", { p: payload(d) });
+                const copyId = await rpc("admin_save_quiz", { p: payload(d) });
+                if (!d.show_result)
+                  await supabase
+                    .from("quizzes")
+                    .update({ show_result: false })
+                    .eq("id", copyId);
                 toast("Duplicated as a draft", "success");
                 list();
               } catch (e) {
@@ -1230,6 +1272,7 @@ async function quizzes() {
       shuffle_questions: z.shuffle_questions,
       shuffle_options: z.shuffle_options,
       show_correct_answers: z.show_correct_answers,
+      show_result: z.show_result !== false,
       start_at: toLocalInput(z.start_at),
       end_at: toLocalInput(z.end_at),
       question_ids: qq.map((x) => x.question_id),
@@ -1290,6 +1333,7 @@ async function quizzes() {
           shuffle_questions: false,
           shuffle_options: false,
           show_correct_answers: true,
+          show_result: true,
           start_at: "",
           end_at: "",
           question_ids: [],
@@ -1340,6 +1384,7 @@ async function quizzes() {
         <div class="row2"><div class="field"><label>Duration (minutes) *</label><input type="number" min="1" data-k="duration_minutes"></div><div class="field"><label>Passing score (%)</label><input type="number" min="0" max="100" data-k="passing_score"></div></div>
         <div class="field"><label>Attempts allowed per student</label><input type="number" min="1" data-k="max_attempts" placeholder="blank = unlimited"></div>
         ${chk("immediate_feedback", "Immediate feedback", "Students see right/wrong after each question and cannot change it.")}${chk("shuffle_questions", "Shuffle questions")}${chk("shuffle_options", "Shuffle answer options")}
+        ${chk("show_result", "Show the result to students immediately after they submit", "Turn off to hold results back: students see a &lsquo;submitted&rsquo; screen instead of their score.")}
         ${chk("show_correct_answers", "Show correct answers and explanations after submission", "Turn off for exams you will reuse.")}
         <div class="row2"><div class="field"><label>Opens</label><input type="datetime-local" data-k="start_at"></div><div class="field"><label>Closes</label><input type="datetime-local" data-k="end_at"></div></div>
         <div class="hint">Blank = always open. The timer never runs past the closing time.</div></section></div>
@@ -1469,6 +1514,7 @@ async function quizzes() {
         const v = all.filter(
           (q) =>
             !d.question_ids.includes(q.id) &&
+            q.question_type !== "MULTIPLE_CHOICE" &&
             (!$("pSys").value || q.system_id === $("pSys").value) &&
             (!$("pType").value || q.question_type === $("pType").value) &&
             (!$("pDiff").value || q.difficulty === $("pDiff").value) &&
@@ -1527,6 +1573,16 @@ async function quizzes() {
         );
       const newId = await rpc("admin_save_quiz", { p: payload(d) });
       d.id = newId;
+      // stored separately so saving still works before supabase/sobo_med_v3.sql is run
+      const { error } = await supabase
+        .from("quizzes")
+        .update({ show_result: !!d.show_result })
+        .eq("id", newId);
+      if (error)
+        toast(
+          "Saved, but the 'show result' option needs supabase/sobo_med_v3.sql to be run.",
+          "error",
+        );
       return newId;
     }
     const act = (fn) => async () => {
@@ -1706,7 +1762,7 @@ async function questions() {
   const blank = () => ({
     id: null,
     question_text: "",
-    question_type: "MULTIPLE_CHOICE",
+    question_type: "IDENTIFY_3D",
     points: 1,
     difficulty: "MEDIUM",
     system_id: "",
@@ -1715,7 +1771,7 @@ async function questions() {
     reference_material: "",
     image_path: "",
     camera: null,
-    highlight_color: "#ff9f1c",
+    highlight_color: "#00e1ff",
     options: [0, 1, 2, 3].map(() => ({ option_text: "", is_correct: false })),
     target_ids: [],
     correct_ids: [],
@@ -2082,7 +2138,7 @@ async function questions() {
       Object.keys(pickers).forEach((k) => delete pickers[k]);
       const t = d.question_type;
       $("eForm").innerHTML =
-        `<div class="row2"><div class="field"><label>Question type</label><select data-k="question_type">${TYPES.map((x) => opt(x, TYPE_LABEL[x], x === t)).join("")}</select></div>
+        `<div class="row2"><div class="field"><label>Question type</label><select data-k="question_type">${(TYPES.includes(t) ? TYPES : [t, ...TYPES]).map((x) => opt(x, TYPE_LABEL[x], x === t)).join("")}</select></div>
           <div class="field"><label>Points</label><input type="number" min="1" max="100" data-k="points"></div></div>
         ${field("question_text", "Question *", "textarea")}
         <div class="row2"><div class="field"><label>Anatomy system</label><select data-k="system_id"><option value="">(none)</option>${systems.map((s) => opt(s.id, s.name, s.id === d.system_id)).join("")}</select></div>
@@ -2372,6 +2428,8 @@ async function questions() {
 }
 
 const PAGES = {
+  student: studentDetail,
+  "quiz-report": quizReport,
   dashboard,
   users,
   anatomy,

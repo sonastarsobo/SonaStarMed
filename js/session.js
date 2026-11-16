@@ -70,6 +70,20 @@ export const titleCase = (s) =>
 export const modelUrlFor = (bucket, path) =>
   supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
 
+// Titles of quizzes whose results the teacher has chosen not to show students straight away
+// (quizzes.show_result = false). Empty if the column does not exist yet.
+export async function hiddenResultQuizzes() {
+  const { data, error } = await supabase
+    .from("quizzes")
+    .select("id,title")
+    .eq("show_result", false);
+  if (error) return { ids: new Set(), titles: new Set() };
+  return {
+    ids: new Set(data.map((q) => q.id)),
+    titles: new Set(data.map((q) => q.title)),
+  };
+}
+
 // Calls a database function and throws a readable Error.
 export async function rpc(name, args = {}) {
   const { data, error } = await supabase.rpc(name, args);
@@ -98,7 +112,6 @@ const NAV = {
     ["learn", "Learn"],
     ["assessment", "Assessment"],
     ["history", "History"],
-    ["profile", "Profile"],
   ],
   ADMIN: [
     ["dashboard", "Dashboard"],
@@ -172,19 +185,25 @@ export function mountNav(profile, active, { xp = true } = {}) {
       .map((w) => w[0])
       .join("")
       .toUpperCase() || "?";
+  const isStudent = profile.role === "STUDENT";
+  const whoInner = `<span class="avatar">${esc(initials)}</span><span class="who-txt"><span class="nm">${esc(profile.name)}</span><span class="sub">${isStudent ? "View profile" : "Teacher"}</span></span>`;
   nav.innerHTML =
-    `<a class="brand" href="${base}dashboard.html"><span class="logo">A</span><span class="nm">Anatomy Learning</span></a>` +
+    `<a class="brand" href="${base}dashboard.html"><span class="logo">S</span><span class="nm">SOBO</span></a>` +
     `<div class="links">${NAV[profile.role]
       .map(
         ([k, label]) =>
           `<a href="${base}${k}.html" ${k === active ? 'aria-current="page"' : ""}>${label}</a>`,
       )
       .join("")}</div>` +
-    `<span class="sp"></span>${profile.role === "STUDENT" ? `<a class="xp" id="navXp" href="${base}profile.html" hidden></a>` : ""}<span class="who"><span class="avatar">${esc(initials)}</span><span class="nm">${esc(profile.name)}</span>${profile.role === "ADMIN" ? '<span class="role">Admin</span>' : ""}</span><a href="#" id="out">Logout</a>`;
-  $("out").onclick = (e) => {
-    e.preventDefault();
-    logout();
-  };
+    `<span class="sp"></span>${isStudent ? `<a class="xp" id="navXp" href="${base}profile.html" hidden></a>` : ""}` +
+    (isStudent
+      ? `<a class="who" href="${base}profile.html" title="Open your profile" ${active === "profile" ? 'aria-current="page"' : ""}>${whoInner}</a>`
+      : `<span class="who">${whoInner}</span><a href="#" id="out">Logout</a>`);
+  if ($("out"))
+    $("out").onclick = (e) => {
+      e.preventDefault();
+      confirmLogout();
+    };
   if (profile.role === "STUDENT") {
     const cached = readXPCache();
     if (cached) setNavXP(cached);
@@ -268,6 +287,15 @@ export function downloadCSV(filename, rows) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+// Asks before signing out; used by the profile page (students) and the top bar (teachers).
+export async function confirmLogout() {
+  const ok = await confirmBox(
+    '<h3 style="margin-top:0">Log out of SOBO?</h3><p class="muted">You will need your username or e-mail and password to sign in again.</p>',
+    { ok: "Log out", cancel: "Stay signed in" },
+  );
+  if (ok) await logout();
 }
 
 // Confirm dialog (promise). Uses <dialog>; falls back to window.confirm.

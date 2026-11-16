@@ -3,41 +3,70 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Profile</title>
+    <title>Profile · SOBO</title>
     <link rel="stylesheet" href="../css/global.css" />
     <link rel="stylesheet" href="../css/dashboard.css" />
   </head>
   <body>
     <nav id="nav" class="top"></nav>
     <main class="wide">
-      <h1>Profile</h1>
-      <div class="grid two">
-        <section class="card">
-          <h2>Account</h2>
-          <div class="field">
-            <label for="nm">Name</label><input id="nm" maxlength="80" />
-          </div>
-          <div class="field">
-            <label>Email</label><input id="em" disabled />
-          </div>
-          <button class="btn" id="saveName">Save name</button>
-          <h2 style="margin-top: 22px">Change password</h2>
-          <div class="field">
-            <label for="pw">New password</label
-            ><input
-              id="pw"
-              type="password"
-              minlength="8"
-              autocomplete="new-password"
-            />
-          </div>
-          <button class="btn secondary" id="savePw">Update password</button>
-          <p class="msg" id="msg"></p>
-        </section>
-        <section class="card">
-          <h2>Progress</h2>
-          <div id="gam"><p class="muted">Loading...</p></div>
-        </section>
+      <section class="card profile-hero">
+        <div class="big-avatar" id="bigAv">?</div>
+        <div style="flex: 1; min-width: 220px">
+          <span class="eyebrow-sm">My profile</span>
+          <h1 id="pName">Loading...</h1>
+          <div class="meta" id="pMeta"></div>
+        </div>
+        <div class="hero-level" id="pLevel"></div>
+      </section>
+
+      <div class="profile-grid">
+        <div>
+          <section class="card">
+            <h2>Account</h2>
+            <div class="field">
+              <label for="nm">Display name</label><input id="nm" maxlength="80" />
+            </div>
+            <div class="field">
+              <label>Username</label><input id="un" disabled />
+            </div>
+            <div class="field">
+              <label>E-mail</label><input id="em" disabled />
+            </div>
+            <button class="btn" id="saveName">Save name</button>
+          </section>
+          <section class="card">
+            <h2>Change password</h2>
+            <div class="field">
+              <label for="pw">New password</label
+              ><input id="pw" type="password" minlength="8" autocomplete="new-password" placeholder="At least 8 characters" />
+            </div>
+            <div class="field">
+              <label for="pw2">Confirm new password</label
+              ><input id="pw2" type="password" minlength="8" autocomplete="new-password" />
+            </div>
+            <button class="btn secondary" id="savePw">Update password</button>
+          </section>
+          <section class="card danger-zone">
+            <h2>Sign out</h2>
+            <p class="muted small">Log out of SOBO on this device.</p>
+            <button class="btn danger" id="logoutBtn">Log out</button>
+          </section>
+        </div>
+        <div>
+          <section class="card">
+            <div class="card-head"><h2>Weekly achievements</h2></div>
+            <div id="ach"><p class="muted">Loading...</p></div>
+            <p class="small muted" style="margin-top: 14px">
+              Badges reset every 7 days, counted from the day you first signed
+              in. Earn them again each week to grow your collection.
+            </p>
+          </section>
+          <section class="card">
+            <h2>This week in numbers</h2>
+            <div class="perf-top" id="weekStats"></div>
+          </section>
+        </div>
       </div>
     </main>
     <script type="module">
@@ -49,41 +78,72 @@
         mountNav,
         toast,
         setNavXP,
+        fmtDay,
+        confirmLogout,
       } from "../js/session.js";
       import { supabase } from "../js/supabase.js";
+      import { loadWeekly, renderWeekly } from "../js/achievements.js";
       const p = await requireStudent();
       mountNav(p, "profile", { xp: false });
+      const initials = (n) =>
+        String(n || "?").trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "?";
+      const paintHead = (name) => {
+        $("pName").textContent = name;
+        $("bigAv").textContent = initials(name);
+      };
+      paintHead(p.name);
+      $("pMeta").innerHTML =
+        (p.username ? `<span class="chip brand">@${esc(p.username)}</span>` : "") +
+        `<span class="chip">${esc(p.email || "")}</span><span class="chip">Member since ${fmtDay(p.created_at)}</span>`;
       $("nm").value = p.name;
+      $("un").value = p.username || "(not set)";
       $("em").value = p.email || "";
+
       $("saveName").onclick = async () => {
         const name = $("nm").value.trim();
         if (!name) return toast("Name cannot be empty", "error");
-        const { error } = await supabase
-          .from("profiles")
-          .update({ name })
-          .eq("id", p.id);
-        error
-          ? toast(error.message, "error")
-          : (toast("Saved", "success"), mountNav({ ...p, name }, "profile"));
+        const { error } = await supabase.from("profiles").update({ name }).eq("id", p.id);
+        if (error) return toast(error.message, "error");
+        toast("Saved", "success");
+        p.name = name;
+        paintHead(name);
+        mountNav(p, "profile");
       };
       $("savePw").onclick = async () => {
-        if ($("pw").value.length < 8)
-          return toast("Use at least 8 characters", "error");
-        const { error } = await supabase.auth.updateUser({
-          password: $("pw").value,
-        });
-        error
-          ? toast(error.message, "error")
-          : (toast("Password updated", "success"), ($("pw").value = ""));
+        if ($("pw").value.length < 8) return toast("Use at least 8 characters", "error");
+        if ($("pw").value !== $("pw2").value) return toast("Passwords do not match", "error");
+        const { error } = await supabase.auth.updateUser({ password: $("pw").value });
+        if (error) return toast(error.message, "error");
+        toast("Password updated", "success");
+        $("pw").value = $("pw2").value = "";
       };
+      $("logoutBtn").onclick = () => confirmLogout();
+
+      rpc("my_dashboard")
+        .then((d) => {
+          const g = d.gamification;
+          setNavXP(g);
+          const lp = Math.max(0, Math.min(100, Number(g.level_progress) || 0));
+          $("pLevel").innerHTML = `<div class="level-ring" style="--p:${lp}"><div><span>Level</span><b>${esc(g.level)}</b></div></div>
+            <div class="level-txt"><b>${esc(g.xp)} XP</b><span class="muted small">${g.next_level_xp != null ? `${g.next_level_xp - g.xp} XP to level ${g.level + 1}` : "Max level"}</span><span class="muted small">${esc(g.structures_viewed ?? 0)} structures studied</span></div>`;
+        })
+        .catch((e) => console.warn(e));
+
       try {
-        const g = (await rpc("my_dashboard")).gamification;
-        setNavXP(g);
-        $("gam").innerHTML =
-          `<p><b style="font-size:1.4rem">Level ${g.level}</b> &middot; ${g.xp} XP</p><div class="prog"><i style="width:${g.level_progress}%"></i></div>
-    <p class="small muted">${g.structures_viewed} structures studied</p><h3>Badges</h3><ul class="list">${g.badges.map((b) => `<li><span>${b.earned ? "&#9989;" : "&#9675;"} <b>${esc(b.name)}</b> <span class="muted small">${esc(b.desc)}</span></span></li>`).join("")}</ul>`;
+        const w = await loadWeekly(p);
+        renderWeekly($("ach"), w);
+        const s = w.stats;
+        $("weekStats").innerHTML = [
+          [s.attempts, "Quiz attempts"],
+          [s.passes, "Quizzes passed"],
+          [s.attempts ? s.avg + "%" : "-", "Average score"],
+          [s.studied, "Structures studied"],
+          [s.studyDays, "Study days"],
+        ]
+          .map(([v, l]) => `<div class="mini"><b>${v}</b><span>${l}</span></div>`)
+          .join("");
       } catch (e) {
-        $("gam").innerHTML = `<p class="msg error">${esc(e.message)}</p>`;
+        $("ach").innerHTML = `<p class="msg error">${esc(e.message)}</p>`;
       }
     </script>
   </body>

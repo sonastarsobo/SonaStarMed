@@ -3,44 +3,54 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Dashboard</title>
+    <title>Dashboard · SOBO</title>
     <link rel="stylesheet" href="../css/global.css" />
     <link rel="stylesheet" href="../css/dashboard.css" />
   </head>
   <body>
     <nav id="nav" class="top"></nav>
     <main class="wide" id="root">
-      <h1 id="hi">Loading...</h1>
-      <section class="grid" id="overview"></section>
-      <div class="grid two">
-        <section class="card">
-          <h2>Performance</h2>
-          <div id="perf"></div>
-        </section>
-        <section class="card">
-          <h2>Continue learning</h2>
-          <div id="cont"></div>
-        </section>
-      </div>
-      <div class="grid two">
-        <section class="card">
-          <h2>Recent activity</h2>
-          <div id="recent"></div>
-        </section>
-        <section class="card">
-          <h2>Recommended learning</h2>
-          <div id="reco"></div>
-        </section>
-      </div>
-      <div class="grid two">
-        <section class="card">
-          <h2>Topic-wise accuracy</h2>
-          <div id="topics"></div>
-        </section>
-        <section class="card">
-          <h2>Achievements</h2>
-          <div id="ach"></div>
-        </section>
+      <section class="dash-hero card" id="hero">
+        <div class="hero-txt">
+          <span class="eyebrow-sm" id="today"></span>
+          <h1 id="hi">Loading...</h1>
+          <p class="muted" id="heroSub"></p>
+          <div class="row" id="heroActions"></div>
+        </div>
+        <div class="hero-level" id="level"></div>
+      </section>
+      <section class="grid stat-strip" id="overview"></section>
+      <div class="dash-grid">
+        <div class="dash-col">
+          <section class="card">
+            <div class="card-head"><h2>Performance</h2></div>
+            <div id="perf"></div>
+          </section>
+          <section class="card">
+            <div class="card-head"><h2>Topic-wise accuracy</h2></div>
+            <div id="topics"></div>
+          </section>
+          <div class="grid two">
+            <section class="card">
+              <div class="card-head"><h2>Recent activity</h2><a class="small" href="history.html">History &rarr;</a></div>
+              <div id="recent"></div>
+            </section>
+            <section class="card">
+              <div class="card-head"><h2>Recommended learning</h2></div>
+              <div id="reco"></div>
+            </section>
+          </div>
+        </div>
+        <div class="dash-col">
+          <section class="card">
+            <div class="card-head"><h2>Weekly achievements</h2><a class="small" href="profile.html">Profile &rarr;</a></div>
+            <div id="ach"><p class="muted">Loading...</p></div>
+          </section>
+          <section class="card">
+            <div class="card-head"><h2>Continue learning</h2><a class="small" href="learn.html">Learn &rarr;</a></div>
+            <div id="cont"></div>
+          </section>
+        </div>
       </div>
     </main>
     <script type="module">

@@ -13,6 +13,7 @@ import {
   titleCase,
 } from "./session.js";
 import { mountScene, itemsFromObjects, TYPE_LABEL } from "./assessment.js";
+import { supabase } from "./supabase.js";
 
 const STATUS = {
   CORRECT: ["Correct", "ok"],
@@ -45,6 +46,26 @@ export async function initResult(profile) {
     qs = r.questions,
     showKey = z.show_correct_answers || isAdmin;
   document.title = `Result: ${z.title}`;
+
+  // The teacher can hold results back (quizzes.show_result = false): students only see that it was submitted.
+  if (!isAdmin) {
+    const { data: setting } = await supabase
+      .from("quizzes")
+      .select("show_result")
+      .eq("id", z.id)
+      .maybeSingle()
+      .then((x) => x, () => ({ data: null }));
+    if (setting && setting.show_result === false) {
+      $("root").innerHTML = `<section class="card submitted-card">
+        <div class="tick" aria-hidden="true">&#10003;</div>
+        <h1>Quiz submitted</h1>
+        <p class="muted">Your answers for <b>${esc(z.title)}</b> have been saved. Your teacher will release the result later.</p>
+        <div class="grid" style="margin-top:18px;max-width:640px;margin-inline:auto"><div class="stat"><b>${fmtDate(a.submitted_at)}</b><span>Submitted</span></div><div class="stat"><b>${fmtDur(a.time_taken_seconds)}</b><span>Time taken</span></div></div>
+        <div class="row" style="justify-content:center;margin-top:18px"><a class="btn" href="dashboard.html">Back to dashboard</a><a class="btn secondary" href="assessment.html">More quizzes</a></div>
+      </section>`;
+      return;
+    }
+  }
 
   // ---- summary ----
   const mistakes = qs.filter((q) => q.status !== "CORRECT");

@@ -622,8 +622,8 @@ export function createViewer(
   const marq = document.createElement("div");
   Object.assign(marq.style, {
     position: "absolute",
-    border: "1px dashed #a78bfa",
-    background: "rgba(139,92,246,.15)",
+    border: "1px dashed #26bbff",
+    background: "rgba(38, 187, 255,.15)",
     pointerEvents: "none",
     display: "none",
     zIndex: 4,
@@ -753,6 +753,7 @@ export function createViewer(
       m.opacity = s.op;
       m.transparent = s.tr;
       m.depthWrite = s.dw;
+      if (s.c != null && m.color) m.color.setHex(s.c);
     });
     markState.clear();
   }
@@ -765,6 +766,7 @@ export function createViewer(
         op: m.opacity,
         tr: m.transparent,
         dw: m.depthWrite,
+        c: m.color ? m.color.getHex() : null,
       });
     return m;
   }
@@ -775,7 +777,7 @@ export function createViewer(
     items.forEach(({ key, names, color }) =>
       find(names, key).forEach((o) =>
         o.traverse((x) => {
-          if (x.isMesh) marked.set(x, color || "#ff9f1c");
+          if (x.isMesh) marked.set(x, color || "#00e1ff");
         }),
       ),
     );
@@ -790,11 +792,14 @@ export function createViewer(
           }
         }),
       );
+    // Marked parts are repainted in the mark colour (not just tinted), so they stand out
+    // clearly against skin- and bone-coloured models.
     marked.forEach((color, mesh) => {
       const m = touch(mesh);
+      if (m.color) m.color.set(color);
       if (m.emissive) {
         m.emissive.set(color);
-        m.emissiveIntensity = 0.7;
+        m.emissiveIntensity = 0.55;
       }
     });
     return marked.size;
@@ -976,6 +981,17 @@ export function createViewer(
     selectByNames(names, key) {
       const objs = find(names, key);
       select(objs);
+      return objs.length;
+    },
+    // Shows or hides the named parts (and makes their parent groups visible when showing).
+    setNamesVisible(names, key, vis) {
+      const objs = find(names, key);
+      objs.forEach((o) => {
+        o.visible = vis;
+        if (vis)
+          for (let a = o.parent; a && a !== scene; a = a.parent)
+            if (a.userData.modelKey === undefined) a.visible = true;
+      });
       return objs.length;
     },
     // Hides if any is visible, otherwise shows. Returns the new visibility (null if nothing found).

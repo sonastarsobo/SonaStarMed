@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Learn</title>
+    <title>Learn · SOBO</title>
     <link rel="stylesheet" href="../css/global.css" />
     <link rel="stylesheet" href="../css/anatomy.css" />
     <script type="importmap">
@@ -99,10 +99,10 @@
             <tr><td><kbd>Shift</kbd> + <kbd>]</kbd> <kbd>[</kbd></td><td>Add next / previous to selection</td></tr>
             <tr><td><kbd>F</kbd></td><td>Zoom to selection</td></tr>
             <tr><td><kbd>I</kbd></td><td>Isolate selection</td></tr>
-            <tr><td><kbd>X</kbd> or <kbd>Del</kbd></td><td>Hide selection</td></tr>
+            <tr><td><kbd>X</kbd> or <kbd>Del</kbd></td><td>Hide / unhide selection</td></tr>
             <tr><td><kbd>U</kbd></td><td>Show all</td></tr>
             <tr><td><kbd>C</kbd></td><td>Section (cut) panel</td></tr>
-            <tr><td><kbd>R</kbd> or <kbd>Home</kbd></td><td>Home view</td></tr>
+            <tr><td><kbd>R</kbd> or <kbd>Home</kbd></td><td>Reset view (front camera, hierarchy collapsed)</td></tr>
             <tr><td><kbd>Backspace</kbd></td><td>Back to previous selection</td></tr>
             <tr><td><kbd>/</kbd></td><td>Search structures</td></tr>
             <tr><td><kbd>Esc</kbd></td><td>Deselect / close panels</td></tr>
@@ -146,10 +146,11 @@
       <div class="tools">
         <button class="btn secondary" id="zin" title="Zoom in (+ or E)">Zoom + <kbd>+</kbd></button
         ><button class="btn secondary" id="zout" title="Zoom out (- or Q)">Zoom - <kbd>-</kbd></button>
-        <button class="btn secondary" id="hide" title="Hide selection (X or Delete)">Hide <kbd>X</kbd></button
+        <button class="btn secondary" id="hide" title="Hide or unhide the selection (X or Delete)"><span id="hideLbl">Hide</span> <kbd>X</kbd></button
         ><button class="btn secondary" id="iso" title="Isolate selection (I)">Isolate <kbd>I</kbd></button>
         <button class="btn secondary" id="show" title="Show all (U)">Show all <kbd>U</kbd></button
         ><button class="btn secondary" id="secBtn" title="Section panel (C)">&#9988; Section <kbd>C</kbd></button
+        ><button class="btn secondary" id="resetAll" title="Reset view: front camera, collapse the hierarchy (R)">&#8634; Reset <kbd>R</kbd></button
         ><label class="chk"
           ><input type="checkbox" id="autoFocus" checked /> Zoom to
           selection</label
@@ -167,6 +168,7 @@
         systemLook,
         logView,
       } from "../js/anatomy.js";
+      import { contentFor, splitSide } from "../js/anatomy-content.js";
 
       const $ = (id) => document.getElementById(id);
       const esc = (s) =>
@@ -193,26 +195,137 @@
       const hasModel = (sysId) =>
         all.some((r) => r.system_id === sysId && r.model_file_path);
 
-      // ---- Information panel (About System) ----
+      // ---- Information panel: teacher-entered content first, generated study notes otherwise ----
+      const sysName = (id) => systems.find((x) => x.id === id)?.name || "";
+      let infoTok = 0;
       async function showRow(row) {
+        stopSpeech();
+        const tok = ++infoTok;
         if (!row) {
           $("info").innerHTML =
             '<p class="msg">No anatomy information is linked to this object yet.</p>';
           return;
         }
         $("info").innerHTML = '<p class="msg">Loading...</p>';
+        let s = null;
         try {
-          const s = await loadStructureById(row.id);
-          $("info").innerHTML =
-            `<h4>${esc(s.name)}</h4><dl><dt>System</dt><dd>${esc(s.anatomy_systems?.name)}</dd><dt>Location</dt><dd>${esc(s.location) || "-"}</dd>
-      <dt>Function</dt><dd>${esc(s.function) || "-"}</dd><dt>Important features</dt><dd>${esc(s.important_features) || "-"}</dd>
-      <dt>Description</dt><dd>${esc(s.description) || "-"}</dd></dl>`;
+          s = await loadStructureById(row.id);
         } catch (e) {
-          console.error(e);
-          $("info").innerHTML =
-            '<p class="msg error">Unable to load structure information.</p>';
+          console.error(e); // the generated notes below still work
+        }
+        if (tok !== infoTok) return; // a newer selection replaced this one
+        const parent = row.parent_id ? rowById(row.parent_id) : null;
+        const kids = childrenOf(row);
+        const sysTitle = s?.anatomy_systems?.name || sysName(row.system_id);
+        const g = contentFor(row, { system: sysTitle, parent: parent?.name });
+        const pickTxt = (db, gen) => {
+          const v = String(db ?? "").trim();
+          return v ? [v, false] : [gen, !!gen];
+        };
+        const rows = [
+          ["Overview", ...pickTxt(s?.description, g.overview)],
+          ["Location", ...pickTxt(s?.location, g.location)],
+          ["Function", ...pickTxt(s?.function, g.function)],
+          ["Key features", ...pickTxt(s?.important_features, g.features)],
+          ["Clinical relevance", g.clinical, true],
+        ].filter(([, v]) => v);
+        const anyGen = rows.some(([, , gen]) => gen);
+        const side = splitSide(row.name).side;
+        $("info").innerHTML = `<h4>${esc(row.name)}</h4>
+          <div class="info-chips"><span class="chip">${esc(sysTitle)}</span>${side ? `<span class="chip">${side === "left" ? "Left" : "Right"} side</span>` : ""}${kids.length ? `<span class="chip">${kids.length} part${kids.length > 1 ? "s" : ""}</span>` : ""}</div>
+          <div class="audio-bar" role="group" aria-label="Listen to this information">
+            <button class="btn small" id="ttsPlay" title="Read this information aloud">&#9654; Listen</button>
+            <button class="btn small secondary" id="ttsStop" title="Stop reading" disabled>&#9632; Stop</button>
+            <select id="ttsRate" aria-label="Reading speed" title="Reading speed"><option value="0.85">Slow</option><option value="1" selected>Normal</option><option value="1.2">Fast</option></select>
+          </div>
+          <dl>${rows.map(([k, v], i) => `<dt>${k}</dt><dd data-sec="${i}">${esc(v)}</dd>`).join("")}
+          ${parent ? `<dt>Part of</dt><dd><button class="linkish" data-goto="${parent.id}">${esc(parent.name)}</button></dd>` : ""}
+          ${kids.length ? `<dt>Contains</dt><dd class="kids">${kids.slice(0, 40).map((k) => `<button class="linkish" data-goto="${k.id}">${esc(k.name)}</button>`).join("")}${kids.length > 40 ? `<span class="muted small">and ${kids.length - 40} more</span>` : ""}</dd>` : ""}</dl>
+          ${anyGen ? '<p class="gen-note">Some notes were generated from the structure name and hierarchy. Check them against your textbook; your teacher can add detailed content in Admin &rarr; Anatomy.</p>' : ""}`;
+        $("ttsPlay").onclick = () => {
+          if (!tts) return;
+          if (ttsState === "playing") {
+            tts.pause();
+            setTts("paused");
+          } else if (ttsState === "paused") {
+            tts.resume();
+            setTts("playing");
+          } else
+            speakSections(
+              [[row.name, ""], ...rows.map(([k, v]) => [k, v])],
+              Number($("ttsRate").value) || 1,
+            );
+        };
+        $("ttsStop").onclick = stopSpeech;
+        if (!tts) {
+          $("ttsPlay").disabled = true;
+          $("ttsPlay").title = "Your browser does not support reading aloud";
         }
       }
+      $("info").addEventListener("click", (e) => {
+        const b = e.target.closest("[data-goto]");
+        if (b) selectRow(rowById(b.dataset.goto));
+      });
+
+      // ---- Audio: reads the information panel aloud (browser speech, nothing to download) ----
+      const tts = window.speechSynthesis || null;
+      let ttsState = "idle";
+      function setTts(st) {
+        ttsState = st;
+        const play = $("ttsPlay"),
+          stop = $("ttsStop");
+        if (play)
+          play.innerHTML =
+            st === "playing"
+              ? "&#10074;&#10074; Pause"
+              : st === "paused"
+                ? "&#9654; Resume"
+                : "&#9654; Listen";
+        if (stop) stop.disabled = st === "idle";
+        if (st === "idle")
+          document
+            .querySelectorAll("#info dd.reading")
+            .forEach((d) => d.classList.remove("reading"));
+      }
+      function stopSpeech() {
+        if (tts && (tts.speaking || tts.pending || tts.paused)) tts.cancel();
+        setTts("idle");
+      }
+      // Some browsers cut off long utterances, so the text is queued sentence by sentence.
+      function speakSections(sections, rate) {
+        tts.cancel();
+        const voice =
+          tts.getVoices().find((v) => /^en[-_](GB|IN|US)/i.test(v.lang)) || null;
+        const parts = [];
+        sections.forEach(([title, text], idx) => {
+          const sentences = `${title}. ${text}`.match(/[^.!?]+[.!?]*/g) || [];
+          sentences.forEach(
+            (t) => t.trim() && parts.push({ t: t.trim(), sec: idx - 1 }),
+          );
+        });
+        if (!parts.length) return;
+        parts.forEach((p, i) => {
+          const u = new SpeechSynthesisUtterance(p.t);
+          u.rate = rate;
+          if (voice) u.voice = voice;
+          u.onstart = () => {
+            document
+              .querySelectorAll("#info dd.reading")
+              .forEach((d) => d.classList.remove("reading"));
+            document
+              .querySelector(`#info dd[data-sec="${p.sec}"]`)
+              ?.classList.add("reading");
+          };
+          if (i === parts.length - 1) u.onend = () => setTts("idle");
+          u.onerror = (ev) => {
+            if (ev.error !== "interrupted" && ev.error !== "canceled")
+              setTts("idle");
+          };
+          tts.speak(u);
+        });
+        setTts("playing");
+      }
+      window.addEventListener("pagehide", stopSpeech);
 
       // ---- Selection (one or many rows) ----
       const childrenOf = (row) => all.filter((r) => r.parent_id === row.id);
@@ -279,6 +392,7 @@
         );
         renderActive();
         showSelection();
+        updateHideLabel();
         return n;
       }
       const toggleRow = (row, additive) =>
@@ -465,7 +579,11 @@
           if (!visibleSys.has(row.system_id)) toggleSystem(row.system_id, true); // reveal its system
           await ensureModels([row.system_id]); // its model may still be downloading
         }
-        if (!additive) viewer.showAll();
+        if (hiddenRows.has(row.id)) setRowsVisible([row], true); // clicking a hidden part brings it back
+        if (!additive) {
+          viewer.showAll(); // undo any isolate...
+          reapplyHidden(); // ...but keep the parts the student hid
+        }
         const n = setSelection(toggleRow(row, additive));
         if (!n && selRows.length)
           $("info").innerHTML =
@@ -480,7 +598,7 @@
       const nodeHtml = (
         r,
         tag,
-      ) => `<${tag} class="node" data-id="${r.id}" data-name="${esc(r.name.toLowerCase())}"><span class="nm" title="${esc(r.name)}">${esc(r.name)}</span>
+      ) => `<${tag} class="node" data-id="${r.id}" data-name="${esc(r.name.toLowerCase())}">${tag === "summary" ? '<button class="tw" title="Expand / collapse" aria-label="Expand or collapse"></button>' : '<span class="tw-sp"></span>'}<span class="nm" title="${esc(r.name)}">${esc(r.name)}</span>
   <button class="eye" title="Show / hide">&#128065;</button><button class="iso" title="Isolate">&#9678;</button></${tag}>`;
       function buildTree() {
         const tree = $("tree");
@@ -516,13 +634,25 @@
       $("tree").addEventListener("click", (e) => {
         const node = e.target.closest(".node");
         if (!node) return;
+        const tw = e.target.closest(".tw");
+        if (tw) {
+          // the arrow only opens / closes this branch
+          e.preventDefault();
+          const d = tw.closest("details");
+          d.open = !d.open;
+          return;
+        }
+        // clicking a group's name selects it (and expands it) instead of toggling it
+        if (node.tagName === "SUMMARY") e.preventDefault();
         const row = rowById(node.dataset.id),
           additive = e.ctrlKey || e.shiftKey || e.metaKey;
-        if (e.target.closest("button")) e.preventDefault(); // do not collapse a group when using its buttons
         if (e.target.closest(".eye")) {
           // show / hide this part or group
           const v = viewer.toggleNames(objIds(row), row.system_id);
+          if (v === false) hiddenRows.add(row.id);
+          else if (v === true) hiddenRows.delete(row.id);
           node.classList.toggle("off", v === false);
+          updateHideLabel();
         } else if (e.target.closest(".iso")) {
           if (selRows.length > 1 && selRows.some((r) => r.id === row.id))
             viewer.isolateSelected(); // whole multi-selection
@@ -565,10 +695,36 @@
       // ---- Viewing, Inspect and Return controls ----
       $("zin").onclick = () => viewer.zoomBy(0.8);
       $("zout").onclick = () => viewer.zoomBy(1.25);
+      // ---- Hide / unhide: the selection stays selected, so pressing Hide again brings it back ----
+      const hiddenRows = new Set();
+      function setRowsVisible(rows, vis) {
+        rows.forEach((r) => {
+          viewer.setNamesVisible(objIds(r), r.system_id, vis);
+          vis ? hiddenRows.delete(r.id) : hiddenRows.add(r.id);
+          nodeEl(r.id)?.classList.toggle("off", !vis);
+        });
+        updateHideLabel();
+      }
+      function reapplyHidden() {
+        hiddenRows.forEach((id) => {
+          const r = rowById(id);
+          if (r) viewer.setNamesVisible(objIds(r), r.system_id, false);
+        });
+      }
+      function updateHideLabel() {
+        const allHidden =
+          selRows.length > 0 && selRows.every((r) => hiddenRows.has(r.id));
+        $("hideLbl").textContent = allHidden ? "Unhide" : "Hide";
+        $("hide").classList.toggle("on", allHidden);
+      }
       $("hide").onclick = () => {
-        selRows.forEach((r) => nodeEl(r.id)?.classList.add("off"));
-        viewer.hideSelected();
-        setSelection([]);
+        if (!selRows.length) {
+          $("info").innerHTML =
+            '<p class="msg">Select a part first, then press Hide. Press it again (or click the part in the hierarchy) to bring it back.</p>';
+          return;
+        }
+        const allHidden = selRows.every((r) => hiddenRows.has(r.id));
+        setRowsVisible(selRows, allHidden);
       };
       $("iso").onclick = () => {
         if (!selRows.length) {
@@ -584,19 +740,34 @@
           .forEach((l) => l.classList.remove("off"));
       $("show").onclick = () => {
         viewer.showAll();
+        hiddenRows.clear();
         clearOff();
+        updateHideLabel();
         viewer.resetCamera();
       };
-      $("reset").onclick = () => {
-        // Home: default system view, nothing selected, default camera ("All" in the Systems menu shows every system)
+      // Reset: default system, nothing hidden or selected, no cut, front camera, hierarchy collapsed
+      function resetView() {
+        stopSpeech();
         $("secOff").click();
+        closePanels();
         setVisibleSystems(defaultSystems());
         viewer.showAll();
+        hiddenRows.clear();
+        clearOff();
         setSelection([]);
         viewer.resetCamera();
         history = [];
-        clearOff();
-      };
+        $("search").value = "";
+        $("search").dispatchEvent(new Event("input"));
+        document
+          .querySelectorAll("#tree details")
+          .forEach((d) => (d.open = false));
+        $("tree").scrollTop = 0;
+        $("leftPane").scrollTop = 0;
+        updateHideLabel();
+      }
+      $("reset").onclick = resetView;
+      $("resetAll").onclick = resetView;
       $("back").onclick = () => {
         // previous selection
         history.pop();
@@ -721,8 +892,8 @@
           delete: () => { flash("hide"); $("hide").click(); },
           u: () => { flash("show"); $("show").click(); },
           c: () => { flash("secBtn"); $("secBtn").click(); },
-          r: () => { flash("reset"); $("reset").click(); },
-          home: () => { flash("reset"); $("reset").click(); },
+          r: () => { flash("resetAll"); resetView(); },
+          home: () => { flash("resetAll"); resetView(); },
           backspace: () => { flash("back"); $("back").click(); },
           "/": () => $("search").focus(),
           h: toggleHelp,

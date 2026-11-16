@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>History</title>
+    <title>History · SOBO</title>
     <link rel="stylesheet" href="../css/global.css" />
     <link rel="stylesheet" href="../css/dashboard.css" />
   </head>
@@ -65,16 +65,25 @@
         barChart,
         downloadCSV,
         toast,
+        hiddenResultQuizzes,
       } from "../js/session.js";
       mountNav(await requireStudent(), "history");
-      let all = [];
+      let all = [],
+        pending = [];
       try {
-        all = await rpc("my_attempts");
+        const [rows, hidden] = await Promise.all([
+          rpc("my_attempts"),
+          hiddenResultQuizzes(),
+        ]);
+        // results the teacher has not released yet are listed without a score
+        all = rows.filter((a) => !hidden.titles.has(a.title));
+        pending = rows.filter((a) => hidden.titles.has(a.title));
       } catch (e) {
         toast(e.message, "error");
       }
       const titles = [...new Set(all.map((a) => a.title))].sort();
-      $("fQuiz").innerHTML += titles
+      $("fQuiz").innerHTML += [...new Set([...titles, ...pending.map((a) => a.title)])]
+        .sort()
         .map((t) => `<option>${esc(t)}</option>`)
         .join("");
       lineChart(
@@ -116,7 +125,17 @@
     <td><a class="btn small secondary" href="result.html?attempt=${a.id}">Review</a></td></tr>`,
               )
               .join("")
-          : '<tr><td colspan="7" class="empty">No attempts yet.</td></tr>';
+          : pending.length
+            ? ""
+            : '<tr><td colspan="7" class="empty">No attempts yet.</td></tr>';
+        if (!$("fRes").value && (!$("fQuiz").value || pending.some((a) => a.title === $("fQuiz").value)))
+          $("rows").innerHTML += pending
+            .filter((a) => !$("fQuiz").value || a.title === $("fQuiz").value)
+            .map(
+              (a) =>
+                `<tr><td class="nowrap">${fmtDate(a.at)}</td><td>${esc(a.title)}</td><td class="muted">-</td><td class="muted">-</td><td>${fmtDur(a.time_taken_seconds)}</td><td><span class="chip">Result pending</span></td><td></td></tr>`,
+            )
+            .join("");
       }
       $("fQuiz").onchange = $("fRes").onchange = draw;
       draw();
