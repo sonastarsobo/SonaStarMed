@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Anatomy Sprint · SOBO</title>
+    <link rel="stylesheet" href="../css/global.css" />
+    <link rel="stylesheet" href="../css/dashboard.css" />
+    <link rel="stylesheet" href="../css/assessment.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <nav id="nav" class="top"></nav>
+    <main class="wide sprint-page" id="gameRoot"></main>
+    <script type="module">
+      import { requireStudent, mountNav } from "../js/session.js";
+      import { mountGame } from "../js/game.js";
+      const p = await requireStudent();
+      mountNav(p, "assessment");
+      // The player picks the body system and presses Start. ?sys=<system id> preselects one; otherwise the last one played (or the first with a model).
+      let sys = new URLSearchParams(location.search).get("sys") || "";
+      try {
+        sys = sys || localStorage.getItem("sprint:lastSys") || "";
+      } catch {}
+      await mountGame(document.getElementById("gameRoot"), p, { autostart: false, sys });
+    </script>
+  </body>
+</html>

@@ -161,7 +161,7 @@ export async function studentDetail() {
       <div class="big-avatar" style="width:72px;height:72px;font-size:1.6rem;border-radius:50%;display:grid;place-items:center;background:var(--grad);color:#101014;font-weight:800">${esc(initials(p.name))}</div>
       <div style="flex:1;min-width:220px"><span class="eyebrow-sm">Student report</span><h1>${esc(p.name)}</h1>
         <div class="row small" style="margin-top:6px">${uname ? `<span class="chip brand">@${esc(uname)}</span>` : ""}<span class="chip">${esc(p.email || "")}</span>${(p.batches || []).map((b) => `<span class="chip">${esc(b)}</span>`).join("")}<span class="muted">Last active ${p.last_active ? fmtDate(p.last_active) : "never"}</span></div></div>
-      <div class="row">${p.role === "STUDENT" ? '<button class="btn secondary" id="resetPw">Reset password</button>' : ""}<button class="btn secondary" id="csv">Download CSV</button><a class="btn secondary" href="attempts.html?user=${id}">Attempts log</a></div>
+      <div class="row">${p.role === "STUDENT" ? '<button class="btn secondary" id="editProfile">Edit profile</button>' : ""}<button class="btn secondary" id="csv">Download CSV</button><a class="btn secondary" href="attempts.html?user=${id}">Attempts log</a></div>
     </section>
     <section class="grid">
       <div class="stat"><b>${x.quizzesTaken}</b><span>Quizzes taken</span></div>
@@ -217,7 +217,7 @@ export async function studentDetail() {
   $("root").querySelectorAll("tr[data-quiz]").forEach(
     (tr) => (tr.onclick = () => (location.href = `quiz-report.html?id=${tr.dataset.quiz}`)),
   );
-  if ($("resetPw")) $("resetPw").onclick = () => resetPasswordFlow({ ...p, username: uname });
+  if ($("editProfile")) $("editProfile").onclick = () => editProfileFlow({ ...p, username: uname }, () => location.reload());
   $("csv").onclick = () =>
     downloadCSV(`report-${p.name.replace(/\W+/g, "_")}.csv`, [
       ["Date", "Quiz", "Status", "Percentage", "Score", "Total points", "Time (s)"],
@@ -569,6 +569,55 @@ export async function resetPasswordFlow(p) {
   document.body.appendChild(d);
   wireCredentials(d, [c]);
   d.querySelector('[value="x"]').onclick = () => d.close();
+  d.addEventListener("close", () => d.remove());
+  d.showModal();
+}
+
+// "Edit profile" dialog on the student page: change the username, or open the password reset.
+export function editProfileFlow(p, onSaved) {
+  const d = document.createElement("dialog");
+  d.className = "confirm";
+  d.style.maxWidth = "480px";
+  const current = p.username || p.name || "";
+  d.innerHTML = `<h3 style="margin-top:0">Edit profile</h3>
+    <p class="muted small" style="margin-top:-6px">${esc(p.email || "")}</p>
+    <div class="field"><label for="epUser">Username</label><input id="epUser" maxlength="60" value="${esc(current)}" autocomplete="off" /></div>
+    <p class="msg" id="epMsg" role="alert"></p>
+    <div class="row2" style="margin-bottom:6px"><button class="btn secondary" value="close">Cancel</button><button class="btn" value="save">Save username</button></div>
+    <hr style="border:0;border-top:1px solid var(--line);margin:14px 0" />
+    <h4 style="margin:0 0 4px">Password</h4>
+    <p class="muted small" style="margin:0 0 10px">Set a new generated password for this student. Their current password stops working.</p>
+    <button class="btn secondary" value="reset" style="width:100%">Reset password</button>`;
+  document.body.appendChild(d);
+  const msg = d.querySelector("#epMsg");
+  d.addEventListener("click", async (e) => {
+    const v = e.target.closest("button")?.value;
+    if (!v) return;
+    if (v === "close") return d.close();
+    if (v === "reset") {
+      d.close();
+      return resetPasswordFlow(p);
+    }
+    if (v === "save") {
+      const username = d.querySelector("#epUser").value.trim();
+      msg.className = "msg error";
+      if (!username) return (msg.textContent = "Username cannot be empty.");
+      if (username === current) return d.close();
+      e.target.disabled = true;
+      // The username doubles as the display name (same as when the account is created)
+      const { error } = await supabase.from("profiles").update({ username, name: username }).eq("id", p.id);
+      e.target.disabled = false;
+      if (error) {
+        msg.textContent = /duplicate|unique/i.test(error.message)
+          ? `Username "${username}" is already taken.`
+          : error.message;
+        return;
+      }
+      toast("Username updated", "success");
+      d.close();
+      onSaved?.(username);
+    }
+  });
   d.addEventListener("close", () => d.remove());
   d.showModal();
 }

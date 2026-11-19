@@ -186,7 +186,7 @@ export function mountNav(profile, active, { xp = true } = {}) {
       .join("")
       .toUpperCase() || "?";
   const isStudent = profile.role === "STUDENT";
-  const whoInner = `<span class="avatar">${esc(initials)}</span><span class="who-txt"><span class="nm">${esc(profile.name)}</span><span class="sub">${isStudent ? "View profile" : "Teacher"}</span></span>`;
+  const whoInner = `<span class="avatar">${esc(initials)}</span><span class="who-txt"><span class="nm">${esc(profile.name)}</span><span class="sub">${isStudent ? "View profile" : "Teacher &middot; Profile"}</span></span>`;
   nav.innerHTML =
     `<a class="brand" href="${base}dashboard.html"><span class="logo">S</span><span class="nm">SOBO</span></a>` +
     `<div class="links">${NAV[profile.role]
@@ -196,14 +196,7 @@ export function mountNav(profile, active, { xp = true } = {}) {
       )
       .join("")}</div>` +
     `<span class="sp"></span>${isStudent ? `<a class="xp" id="navXp" href="${base}profile.html" hidden></a>` : ""}` +
-    (isStudent
-      ? `<a class="who" href="${base}profile.html" title="Open your profile" ${active === "profile" ? 'aria-current="page"' : ""}>${whoInner}</a>`
-      : `<span class="who">${whoInner}</span><a href="#" id="out">Logout</a>`);
-  if ($("out"))
-    $("out").onclick = (e) => {
-      e.preventDefault();
-      confirmLogout();
-    };
+    `<a class="who" href="${base}profile.html" title="Open your profile" ${active === "profile" ? 'aria-current="page"' : ""}>${whoInner}</a>`;
   if (profile.role === "STUDENT") {
     const cached = readXPCache();
     if (cached) setNavXP(cached);
@@ -319,5 +312,26 @@ export function confirmBox(html, { ok = "OK", cancel = "Cancel" } = {}) {
     d.addEventListener("close", () => d.remove());
     document.body.appendChild(d);
     d.showModal();
+  });
+}
+
+// ---------- click outside a dialog to close it (every page that loads session.js) ----------
+// Covers <dialog> elements (the click lands on the dialog's own backdrop) and the teacher "sheet" panels.
+// The press must also START outside, so selecting text inside a form and releasing outside does not close it.
+{
+  let downTarget = null;
+  document.addEventListener("pointerdown", (e) => (downTarget = e.target), true);
+  document.addEventListener("click", (e) => {
+    const t = e.target;
+    if (downTarget !== t) return;
+    if (t instanceof HTMLDialogElement && t.open) {
+      const r = t.getBoundingClientRect();
+      const outside = e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+      if (!outside) return;
+      t.dispatchEvent(new Event("cancel")); // lets confirmBox resolve its promise with "no"
+      t.close();
+    } else if (t.classList?.contains("sheet") && t.classList.contains("open")) {
+      t.classList.remove("open");
+    }
   });
 }

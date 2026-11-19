@@ -25,15 +25,12 @@
           <section class="card">
             <h2>Account</h2>
             <div class="field">
-              <label for="nm">Display name</label><input id="nm" maxlength="80" />
+              <label for="un">Username</label><input id="un" disabled />
             </div>
             <div class="field">
-              <label>Username</label><input id="un" disabled />
+              <label for="em">E-mail</label><input id="em" disabled />
             </div>
-            <div class="field">
-              <label>E-mail</label><input id="em" disabled />
-            </div>
-            <button class="btn" id="saveName">Save name</button>
+            <p class="muted small">Your username and e-mail can only be changed by your teacher.</p>
           </section>
           <section class="card">
             <h2>Change password</h2>
@@ -95,20 +92,10 @@
       $("pMeta").innerHTML =
         (p.username ? `<span class="chip brand">@${esc(p.username)}</span>` : "") +
         `<span class="chip">${esc(p.email || "")}</span><span class="chip">Member since ${fmtDay(p.created_at)}</span>`;
-      $("nm").value = p.name;
-      $("un").value = p.username || "(not set)";
+      // Self-registered accounts have no separate username; their name is the username.
+      $("un").value = p.username || p.name || "";
       $("em").value = p.email || "";
 
-      $("saveName").onclick = async () => {
-        const name = $("nm").value.trim();
-        if (!name) return toast("Name cannot be empty", "error");
-        const { error } = await supabase.from("profiles").update({ name }).eq("id", p.id);
-        if (error) return toast(error.message, "error");
-        toast("Saved", "success");
-        p.name = name;
-        paintHead(name);
-        mountNav(p, "profile");
-      };
       $("savePw").onclick = async () => {
         if ($("pw").value.length < 8) return toast("Use at least 8 characters", "error");
         if ($("pw").value !== $("pw2").value) return toast("Passwords do not match", "error");

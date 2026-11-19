@@ -431,7 +431,11 @@ export function createViewer(
         o.material = originals.get(o);
         originals.delete(o);
       }
-      markState.delete(o);
+      if (markState.has(o)) {
+        if (o.material !== markState.get(o)) o.material.dispose(); // mark copy
+        o.material = markState.get(o);
+        markState.delete(o);
+      }
       (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) =>
         m.dispose(),
       );
@@ -743,32 +747,28 @@ export function createViewer(
   const findItems = (items) =>
     items.flatMap(({ key, names }) => find(names, key));
 
-  // ---- Coloured marks (assessment mode): paint parts in any colour, optionally ghost everything else ----
+  // ---- Coloured marks (assessment mode): paint parts in any colour, optionally X-ray everything else ----
+  // Every marked or ghosted mesh gets its OWN copy of its material (many meshes share one material in a
+  // GLB, so editing the shared one used to hide the marked part along with the rest). Ghosted parts are
+  // faint and see-through so a part buried inside the system can be spotted without zooming in; marked
+  // parts stay fully opaque, so they are drawn first and nothing behind them shows through.
+  const GHOST_OPACITY = 0.1;
   function restoreMarks() {
-    markState.forEach((s, mesh) => {
-      const m = mesh.material;
-      if (!m) return;
-      if (m.emissive) m.emissive.setHex(s.e);
-      m.emissiveIntensity = s.ei;
-      m.opacity = s.op;
-      m.transparent = s.tr;
-      m.depthWrite = s.dw;
-      if (s.c != null && m.color) m.color.setHex(s.c);
+    markState.forEach((orig, mesh) => {
+      if (mesh.material && mesh.material !== orig) mesh.material.dispose(); // the copy
+      mesh.material = orig;
     });
     markState.clear();
   }
   function touch(mesh) {
-    const m = mesh.material;
-    if (!markState.has(mesh))
-      markState.set(mesh, {
-        e: m.emissive ? m.emissive.getHex() : 0,
-        ei: m.emissiveIntensity ?? 1,
-        op: m.opacity,
-        tr: m.transparent,
-        dw: m.depthWrite,
-        c: m.color ? m.color.getHex() : null,
-      });
-    return m;
+    if (!markState.has(mesh)) {
+      const orig = mesh.material;
+      markState.set(mesh, orig);
+      const m = orig.clone();
+      m.clippingPlanes = orig.clippingPlanes; // keep the section cut working
+      mesh.material = m;
+    }
+    return mesh.material;
   }
   // items: [{ key, names, color }]. Returns how many meshes were marked.
   function setMarks(items, { ghost = false } = {}) {
@@ -784,22 +784,27 @@ export function createViewer(
     if (ghost && marked.size)
       models.forEach((root) =>
         root.traverse((o) => {
-          if (o.isMesh && !marked.has(o)) {
+          if (o.isMesh && !marked.has(o) && !Array.isArray(o.material)) {
             const m = touch(o);
             m.transparent = true;
-            m.opacity = 0.12;
+            m.opacity = GHOST_OPACITY;
             m.depthWrite = false;
+            if (m.emissive) m.emissive.setHex(0x000000);
           }
         }),
       );
     // Marked parts are repainted in the mark colour (not just tinted), so they stand out
     // clearly against skin- and bone-coloured models.
     marked.forEach((color, mesh) => {
+      if (Array.isArray(mesh.material)) return;
       const m = touch(mesh);
+      m.transparent = false;
+      m.opacity = 1;
+      m.depthWrite = true;
       if (m.color) m.color.set(color);
       if (m.emissive) {
         m.emissive.set(color);
-        m.emissiveIntensity = 0.55;
+        m.emissiveIntensity = 0.6;
       }
     });
     return marked.size;

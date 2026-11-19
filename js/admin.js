@@ -66,7 +66,7 @@ function openSheet(title, html) {
     s.className = "sheet";
     document.body.appendChild(s);
   }
-  s.innerHTML = `<div class="inner"><div class="row sp"><h2 style="margin:0">${esc(title)}</h2><button class="btn secondary small" id="sheetX">Close</button></div><div id="sheetBody" style="margin-top:12px">${html}</div></div>`;
+  s.innerHTML = `<div class="inner"><div class="sheet-head"><h2 style="margin:0">${esc(title)}</h2><button class="sheet-x" id="sheetX" type="button" aria-label="Close" title="Close">&times;</button></div><div id="sheetBody" style="margin-top:12px">${html}</div></div>`;
   s.classList.add("open");
   $("sheetX").onclick = closeSheet;
   return $("sheetBody");

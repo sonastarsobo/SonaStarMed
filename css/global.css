@@ -64,8 +64,9 @@ body {
   -moz-osx-font-smoothing: grayscale;
   color: var(--ink);
   background:
-    radial-gradient(700px 520px at 12% 85%, rgba(176, 64, 150, 0.16), transparent 70%),
-    radial-gradient(760px 520px at 78% 22%, rgba(150, 80, 190, 0.13), transparent 70%),
+    radial-gradient(900px 640px at 10% 90%, rgba(176, 64, 150, 0.26), transparent 70%),
+    radial-gradient(900px 640px at 82% 16%, rgba(130, 90, 220, 0.24), transparent 70%),
+    radial-gradient(800px 560px at 55% 55%, rgba(38, 187, 255, 0.09), transparent 70%),
     var(--bg);
   background-attachment: fixed;
   min-height: 100vh;
@@ -611,4 +612,39 @@ nav.top a.xp:hover {
   nav.top a.xp {
     margin-right: 2px;
   }
+}
+
+/* ---------- readable small labels (stat captions, table headers, field names) ----------
+   Brighter than --muted and semi-bold so they stay legible on the dark cards.
+   ":root" raises specificity so this wins over the page stylesheets loaded after it. */
+:root .stat span,
+:root .mini span,
+:root .level-ring span,
+:root .tbl th,
+:root .badge .bnum,
+:root .dist .col span,
+:root .qmeta span,
+:root .qnav h4,
+:root .qtype,
+:root .qcat,
+:root .rv dt,
+:root .g-label,
+:root .learn aside h3,
+:root #info dt,
+:root #sysCount,
+:root .bar .bv small,
+:root .linechart text {
+  color: var(--ink-2);
+  font-weight: 600;
+}
+:root .stat span,
+:root .mini span,
+:root .tbl th {
+  letter-spacing: 0.06em;
+}
+:root .linechart text {
+  fill: var(--ink-2);
+}
+:root .badge.on .bnum {
+  color: var(--ok);
 }

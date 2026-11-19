@@ -54,8 +54,7 @@
         </div>
         <div id="viewtools">
           <button class="btn secondary" id="helpBtn" title="Help and shortcuts (H or ?)">? Help</button
-          ><button class="btn secondary" id="back" title="Previous selection (Backspace)">Back</button
-          ><button class="btn secondary" id="reset" title="Home view (R)">Home</button>
+          ><button class="btn secondary" id="back" title="Previous selection (Backspace)">Back</button>
         </div>
         <div id="helpbox" hidden>
           <h4>Controls</h4>
@@ -766,7 +765,7 @@
         $("leftPane").scrollTop = 0;
         updateHideLabel();
       }
-      $("reset").onclick = resetView;
+
       $("resetAll").onclick = resetView;
       $("back").onclick = () => {
         // previous selection

@@ -213,6 +213,5 @@ export async function initResult(profile) {
     scene.viewer.frameItems(items);
     $("legend3d").innerHTML =
       '<span class="chip ok">Correct structure</span> <span class="chip bad">Your wrong selection</span>';
-    $("stage").scrollIntoView({ block: "nearest", behavior: "smooth" });
   }
 }
