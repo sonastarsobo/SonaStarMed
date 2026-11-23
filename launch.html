@@ -10,331 +10,1206 @@
         min-height: 100vh;
         min-height: 100dvh;
         margin: 0;
-        display: grid;
-        place-items: center;
         overflow: hidden;
-        background: var(--bg);
-        text-align: center;
+        background: #07080b;
+        color: var(--ink);
+        transition: opacity 0.9s var(--ease);
       }
-      .launch .glow {
+      body.leaving {
+        opacity: 0;
+      }
+      /* faint monitor grid + vignette */
+      .grid-bg {
         position: fixed;
-        inset: 50% auto auto 50%;
-        width: 900px;
-        height: 900px;
-        transform: translate(-50%, -50%);
-        background:
-          radial-gradient(circle at 35% 60%, rgba(190, 70, 160, 0.3), transparent 55%),
-          radial-gradient(circle at 65% 35%, rgba(130, 90, 220, 0.24), transparent 55%),
-          radial-gradient(circle at 50% 50%, rgba(38, 187, 255, 0.12), transparent 60%);
-        filter: blur(60px);
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(38, 187, 255, 0.05) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(38, 187, 255, 0.05) 1px, transparent 1px);
+        background-size: 48px 48px;
+        mask-image: radial-gradient(ellipse at center, #000 30%, transparent 78%);
+        -webkit-mask-image: radial-gradient(ellipse at center, #000 30%, transparent 78%);
+        pointer-events: none;
+      }
+      /* particle field (neural network -> vortex -> text) */
+      #fx {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
         pointer-events: none;
         z-index: 0;
-        transition: transform 1.2s var(--ease), opacity 1.2s var(--ease);
       }
-      .launch.live .glow {
-        transform: translate(-50%, -50%) scale(1.35);
+      #ecg {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 64px; /* sits below the text, just above the footer rail */
+        width: 100%;
+        height: clamp(90px, 16vh, 150px);
+        opacity: 0.55;
+        pointer-events: none;
+        transition: opacity 0.8s var(--ease);
       }
-      .stage {
-        position: relative;
-        z-index: 1;
-        padding: 24px 16px;
-        width: min(720px, 100%);
+      .counting #ecg,
+      .live #ecg {
+        opacity: 0.9;
       }
-      .brandline {
+
+      /* top and bottom rails */
+      .rail {
+        position: fixed;
+        left: 0;
+        right: 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        padding: 22px clamp(16px, 4vw, 40px);
+        font-family: var(--mono);
+        font-size: 12px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+        z-index: 2;
+      }
+      .rail.top {
+        top: 0;
+      }
+      .rail.bottom {
+        bottom: 0;
+      }
+      .rail .brand {
         display: inline-flex;
         align-items: center;
         gap: 10px;
         font-family: var(--display);
-        font-weight: 700;
-        font-size: 15px;
-        letter-spacing: 0.02em;
-        color: var(--ink-2);
-      }
-      .brandline .logo {
-        width: 30px;
-        height: 30px;
         font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: none;
+        color: var(--ink);
       }
-      .stage h1 {
-        margin: 22px 0 10px;
-        font-family: var(--display);
-        font-size: clamp(34px, 7vw, 64px);
-        font-weight: 800;
-        letter-spacing: -0.03em;
-        line-height: 1.05;
+      .rail .brand .logo {
+        width: 26px;
+        height: 26px;
+        font-size: 12px;
       }
-      .stage h1 em {
-        font-style: normal;
-        background: var(--grad);
-        -webkit-background-clip: text;
-        background-clip: text;
-        color: transparent;
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
       }
-      .stage .sub {
-        margin: 0 auto 36px;
-        max-width: 480px;
-        color: var(--ink-2);
-        font-size: clamp(15px, 2.2vw, 18px);
+      .status i {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--warn);
+        box-shadow: 0 0 10px var(--warn);
+        animation: blink 1.6s ease-in-out infinite;
+      }
+      .live .status i {
+        background: var(--ok);
+        box-shadow: 0 0 10px var(--ok);
+        animation: none;
+      }
+      @keyframes blink {
+        50% {
+          opacity: 0.35;
+        }
       }
 
-      /* the launch button */
-      #go {
+      /* centre stage */
+      .stage {
         position: relative;
-        padding: 18px 44px;
-        border-radius: 999px;
-        font-size: 18px;
-        font-weight: 700;
-        letter-spacing: 0.02em;
-        box-shadow: 0 0 0 0 rgba(38, 187, 255, 0.55);
-        animation: pulse 2.2s ease-out infinite;
+        z-index: 1;
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        padding: 80px 16px calc(64px + clamp(90px, 16vh, 150px) + 12px); /* keep text clear of the ECG */
+        text-align: center;
       }
-      @keyframes pulse {
-        0% { box-shadow: 0 0 0 0 rgba(38, 187, 255, 0.5); }
-        70% { box-shadow: 0 0 0 22px rgba(38, 187, 255, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(38, 187, 255, 0); }
+      .panel {
+        width: min(760px, 100%);
+        animation: enter 0.9s var(--ease) both;
+      }
+      @keyframes enter {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      .eyebrow {
+        display: inline-block;
+        font-family: var(--mono);
+        font-size: 12px;
+        letter-spacing: 0.28em;
+        text-transform: uppercase;
+        color: var(--brand);
+      }
+      .panel h1 {
+        margin: 18px 0 14px;
+        font-family: var(--display);
+        font-size: clamp(36px, 6.4vw, 68px);
+        font-weight: 600;
+        letter-spacing: -0.035em;
+        line-height: 1.04;
+      }
+      .panel h1 .muted-line {
+        color: var(--muted);
+        font-weight: 300;
+      }
+      .panel .sub {
+        margin: 0 auto;
+        max-width: 520px;
+        color: var(--ink-2);
+        font-size: clamp(15px, 2vw, 17px);
+        line-height: 1.6;
+      }
+      .rule {
+        width: 64px;
+        height: 1px;
+        margin: 34px auto;
+        background: var(--line-strong);
+      }
+
+      /* ready: staggered entrance */
+      #ready > * {
+        animation: enter 1s var(--ease) both;
+      }
+      #ready > :nth-child(2) {
+        animation-delay: 0.12s;
+      }
+      #ready > :nth-child(3) {
+        animation-delay: 0.24s;
+      }
+      #ready > :nth-child(4) {
+        animation-delay: 0.36s;
+      }
+      #ready > :nth-child(5),
+      #ready > :nth-child(6) {
+        animation-delay: 0.48s;
+      }
+
+      #go,
+      .cta {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 14px;
+        padding: 16px 30px;
+        border: 1px solid rgba(38, 187, 255, 0.6);
+        border-radius: 2px;
+        background: rgba(38, 187, 255, 0.06);
+        color: var(--ink);
+        font: inherit;
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        cursor: pointer;
+        overflow: hidden;
+        transition:
+          background 0.25s var(--ease),
+          border-color 0.25s var(--ease),
+          color 0.25s var(--ease),
+          box-shadow 0.25s var(--ease);
+      }
+      /* light sweeping across the button */
+      #go::after,
+      .cta::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.22) 50%, transparent 70%);
+        transform: translateX(-120%);
+        animation: sheen 3.2s 1.2s ease-in-out infinite;
+      }
+      @keyframes sheen {
+        0%,
+        60% {
+          transform: translateX(-120%);
+        }
+        100% {
+          transform: translateX(120%);
+        }
+      }
+      #go:hover,
+      #go:focus-visible,
+      .cta:hover,
+      .cta:focus-visible {
+        background: var(--brand);
+        border-color: var(--brand);
+        color: #07080b;
+        outline: none;
+        box-shadow: 0 0 40px -6px rgba(38, 187, 255, 0.8);
+      }
+      #go svg,
+      .cta svg {
+        width: 16px;
+        height: 16px;
       }
       .hint {
         margin-top: 16px;
-        font-size: 13px;
-        color: var(--muted);
-      }
-      .hint kbd {
         font-family: var(--mono);
-        font-size: 12px;
-        padding: 1px 6px;
-        border: 1px solid var(--line-strong);
-        border-radius: 4px;
-      }
-
-      /* countdown */
-      .count {
-        position: relative;
-        width: min(300px, 70vw);
-        aspect-ratio: 1;
-        margin: 0 auto;
-        display: grid;
-        place-items: center;
-      }
-      .count svg {
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-        transform: rotate(-90deg);
-      }
-      .count .track {
-        fill: none;
-        stroke: var(--line-strong);
-        stroke-width: 4;
-      }
-      .count .arc {
-        fill: none;
-        stroke: url(#ring);
-        stroke-width: 6;
-        stroke-linecap: round;
-      }
-      .count b {
-        font-family: var(--display);
-        font-size: clamp(96px, 22vw, 160px);
-        font-weight: 900;
-        line-height: 1;
-        letter-spacing: -0.04em;
-        animation: tick 1s var(--ease);
-      }
-      @keyframes tick {
-        0% { transform: scale(1.6); opacity: 0; filter: blur(8px); }
-        35% { transform: scale(1); opacity: 1; filter: blur(0); }
-        85% { transform: scale(0.96); opacity: 1; }
-        100% { transform: scale(0.8); opacity: 0; }
-      }
-      .count-label {
-        margin-top: 22px;
-        font-size: 14px;
-        letter-spacing: 0.24em;
+        font-size: 11.5px;
+        letter-spacing: 0.12em;
         text-transform: uppercase;
         color: var(--muted);
       }
 
-      /* live */
-      .live-msg h1 {
-        animation: rise 0.9s var(--ease) both;
+      /* countdown dial */
+      #counting {
+        animation: dialIn 0.8s var(--ease) both;
       }
-      .live-msg .sub {
-        animation: rise 0.9s 0.15s var(--ease) both;
+      @keyframes dialIn {
+        from {
+          opacity: 0;
+          transform: scale(0.86);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
       }
-      @keyframes rise {
-        from { transform: translateY(18px); opacity: 0; }
-        to { transform: none; opacity: 1; }
+      .dial {
+        position: relative;
+        width: clamp(230px, 44vw, 360px);
+        aspect-ratio: 1;
+        margin: 18px auto 0;
+        display: grid;
+        place-items: center;
       }
-      .flash {
-        position: fixed;
-        inset: 0;
-        background: radial-gradient(circle, rgba(255, 255, 255, 0.85), rgba(38, 187, 255, 0.2) 40%, transparent 70%);
-        pointer-events: none;
-        z-index: 2;
-        animation: flash 0.9s ease-out forwards;
-      }
-      @keyframes flash {
-        from { opacity: 1; }
-        to { opacity: 0; }
-      }
-      #burst {
-        position: fixed;
+      .dial svg {
+        position: absolute;
         inset: 0;
         width: 100%;
         height: 100%;
-        pointer-events: none;
-        z-index: 1;
+        overflow: visible;
       }
+      .dial .tick {
+        stroke: rgba(255, 255, 255, 0.14);
+        stroke-width: 0.5;
+        transition: stroke 0.2s;
+      }
+      .dial .tick.major {
+        stroke-width: 0.9;
+      }
+      .dial .tick.on {
+        stroke: #26bbff;
+        filter: drop-shadow(0 0 1.5px #26bbff);
+      }
+      .dial .spin {
+        fill: none;
+        stroke: rgba(185, 140, 255, 0.7);
+        stroke-width: 0.5;
+        stroke-dasharray: 18 120;
+        transform-origin: 50px 50px;
+        animation: spin 2.4s linear infinite;
+      }
+      .dial .spin.s2 {
+        stroke: rgba(38, 187, 255, 0.5);
+        stroke-dasharray: 6 60;
+        animation-duration: 1.5s;
+        animation-direction: reverse;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .dial .inner {
+        fill: none;
+        stroke: rgba(255, 255, 255, 0.07);
+        stroke-width: 0.4;
+      }
+      .digits {
+        position: relative;
+        font-family: var(--mono);
+        font-size: clamp(68px, 14vw, 124px);
+        font-weight: 300;
+        line-height: 1;
+        letter-spacing: -0.04em;
+        font-variant-numeric: tabular-nums;
+        text-shadow: 0 0 30px rgba(38, 187, 255, 0.35);
+      }
+      .digits span {
+        display: inline-block;
+        animation: digit 0.45s var(--ease);
+      }
+      @keyframes digit {
+        from {
+          opacity: 0;
+          transform: translateY(14%);
+          filter: blur(3px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+          filter: none;
+        }
+      }
+      .dial .unit {
+        position: absolute;
+        bottom: 27%;
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .count-meta {
+        margin: 22px auto 0;
+        font-family: var(--mono);
+        font-size: 12px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--ink-2);
+        min-height: 1.4em;
+      }
+      .count-meta span {
+        display: inline-block;
+        animation: enter 0.4s var(--ease);
+      }
+      .count-meta b {
+        color: var(--brand);
+        font-weight: 500;
+        margin-right: 10px;
+      }
+
+      /* ---- countdown -> live transition ("monitor ignition") ---- */
+      #counting.outro {
+        animation: outro 0.45s var(--ease) forwards;
+      }
+      @keyframes outro {
+        to {
+          opacity: 0;
+          transform: scale(0.6);
+          filter: blur(6px);
+        }
+      }
+      #ignite {
+        position: fixed;
+        inset: 0;
+        z-index: 3;
+        pointer-events: none;
+        display: none;
+      }
+      .igniting #ignite {
+        display: block;
+      }
+      .scan {
+        position: absolute;
+        left: 50%;
+        top: var(--cy, 50%);
+        width: 100vw;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, #26bbff 20%, #e6f8ff 50%, #26bbff 80%, transparent);
+        box-shadow: 0 0 18px 2px rgba(38, 187, 255, 0.7);
+        transform: translate(-50%, -50%) scaleX(0);
+      }
+      .igniting .scan {
+        animation:
+          scanGrow 0.5s var(--ease) forwards,
+          var(--split) 0.85s 0.5s cubic-bezier(0.6, 0, 0.2, 1) forwards;
+      }
+      .scan.up {
+        --split: scanUp;
+      }
+      .scan.down {
+        --split: scanDown;
+      }
+      @keyframes scanGrow {
+        to {
+          transform: translate(-50%, -50%) scaleX(1);
+        }
+      }
+      @keyframes scanUp {
+        from {
+          transform: translate(-50%, -50%) scaleX(1);
+          opacity: 1;
+        }
+        to {
+          transform: translate(-50%, calc(-50% - var(--cy, 50vh))) scaleX(1);
+          opacity: 0;
+        }
+      }
+      @keyframes scanDown {
+        from {
+          transform: translate(-50%, -50%) scaleX(1);
+          opacity: 1;
+        }
+        to {
+          transform: translate(-50%, calc(-50% + 100vh - var(--cy, 50vh))) scaleX(1);
+          opacity: 0;
+        }
+      }
+      .veil {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: var(--cy, 50%);
+        height: 100vh;
+        background: radial-gradient(ellipse at center, rgba(38, 187, 255, 0.18), transparent 65%);
+        transform: translateY(-50%) scaleY(0);
+        opacity: 0;
+      }
+      .igniting .veil {
+        animation: veil 1.1s 0.45s var(--ease) forwards;
+      }
+      @keyframes veil {
+        0% {
+          transform: translateY(-50%) scaleY(0);
+          opacity: 1;
+        }
+        60% {
+          opacity: 0.8;
+        }
+        100% {
+          transform: translateY(-50%) scaleY(1);
+          opacity: 0;
+        }
+      }
+      /* core flash where everything imploded */
+      .core {
+        position: absolute;
+        left: var(--cx, 50%);
+        top: var(--cy, 50%);
+        width: 14px;
+        height: 14px;
+        margin: -7px 0 0 -7px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow:
+          0 0 30px 10px rgba(38, 187, 255, 0.9),
+          0 0 90px 40px rgba(130, 90, 220, 0.4);
+        opacity: 0;
+      }
+      .igniting .core {
+        animation: core 0.9s 0.35s ease-out forwards;
+      }
+      @keyframes core {
+        0% {
+          opacity: 0;
+          transform: scale(0.2);
+        }
+        18% {
+          opacity: 1;
+          transform: scale(1.4);
+        }
+        100% {
+          opacity: 0;
+          transform: scale(5);
+        }
+      }
+      .ring {
+        position: absolute;
+        left: var(--cx, 50%);
+        top: var(--cy, 50%);
+        width: 40px;
+        height: 40px;
+        margin: -20px 0 0 -20px;
+        border: 1px solid rgba(38, 187, 255, 0.8);
+        border-radius: 50%;
+        opacity: 0;
+      }
+      .igniting .ring {
+        animation: ring 1.3s 0.5s cubic-bezier(0.2, 0.6, 0.2, 1) forwards;
+      }
+      .igniting .ring.r2 {
+        animation-delay: 0.68s;
+        border-color: rgba(185, 140, 255, 0.7);
+      }
+      .igniting .ring.r3 {
+        animation-delay: 0.86s;
+        border-color: rgba(255, 255, 255, 0.5);
+      }
+      @keyframes ring {
+        0% {
+          transform: scale(0.2);
+          opacity: 0.9;
+        }
+        100% {
+          transform: scale(34);
+          opacity: 0;
+        }
+      }
+      .igniting .grid-bg {
+        animation: gridFlash 1.4s 0.5s ease-out;
+      }
+      @keyframes gridFlash {
+        0% {
+          filter: brightness(1);
+        }
+        20% {
+          filter: brightness(3.4);
+        }
+        100% {
+          filter: brightness(1);
+        }
+      }
+      /* a short camera shake at the moment of ignition */
+      .shake .stage,
+      .shake #fx {
+        animation: shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+      }
+      @keyframes shake {
+        20% {
+          transform: translate(-3px, 2px);
+        }
+        40% {
+          transform: translate(3px, -2px);
+        }
+        60% {
+          transform: translate(-2px, 1px);
+        }
+        80% {
+          transform: translate(1px, -1px);
+        }
+      }
+
+      /* live panel: lines slide up from behind a mask, one after another */
+      #live {
+        animation: none;
+      }
+      #live .reveal {
+        display: block;
+        overflow: hidden;
+      }
+      #live .reveal > * {
+        display: inline-block;
+        transform: translateY(105%);
+        opacity: 0;
+      }
+      #live.show .reveal > * {
+        animation: lineUp 0.8s var(--ease) forwards;
+        animation-delay: calc(var(--i) * 0.14s);
+      }
+      @keyframes lineUp {
+        to {
+          transform: none;
+          opacity: 1;
+        }
+      }
+      /* the brand line is first drawn by the particles, then the real text fades in over them */
+      #live h1 .reveal.brandline {
+        overflow: visible;
+      }
+      #live h1 .reveal.brandline > b {
+        color: var(--ink);
+        font-weight: 600;
+        transform: none;
+      }
+      #live.show h1 .reveal.brandline > b {
+        animation: textIn 0.9s 0.1s ease forwards;
+      }
+      @keyframes textIn {
+        from {
+          opacity: 0;
+          filter: blur(6px);
+          text-shadow: 0 0 40px rgba(38, 187, 255, 0.9);
+        }
+        to {
+          opacity: 1;
+          filter: none;
+          text-shadow: 0 0 24px rgba(38, 187, 255, 0.25);
+        }
+      }
+      #live .enter-wrap {
+        padding: 30px 0; /* room for the glow, which the reveal mask would otherwise clip */
+        margin-bottom: -30px;
+      }
+      .cta {
+        padding: 18px 36px;
+        border-color: rgba(38, 187, 255, 0.85);
+        box-shadow: 0 0 0 0 rgba(38, 187, 255, 0.45);
+      }
+      #live.ready .cta {
+        animation: ctaPulse 2.4s ease-out infinite;
+        opacity: 1;
+        transform: none;
+      }
+      @keyframes ctaPulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(38, 187, 255, 0.45);
+        }
+        70% {
+          box-shadow: 0 0 0 18px rgba(38, 187, 255, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(38, 187, 255, 0);
+        }
+      }
+      #live .rule {
+        transform: scaleX(0);
+        margin: 26px auto;
+        background: linear-gradient(90deg, transparent, #26bbff, transparent);
+        width: 160px;
+      }
+      #live.show .rule {
+        transition: transform 1s 0.5s var(--ease);
+        transform: scaleX(1);
+      }
+
       [hidden] {
         display: none !important;
       }
       @media (prefers-reduced-motion: reduce) {
-        #go,
-        .count b,
-        .live-msg h1,
-        .live-msg .sub {
+        .panel,
+        #ready > *,
+        .digits span,
+        #counting,
+        #counting.outro,
+        #go::after,
+        .dial .spin,
+        .status i,
+        .shake .stage {
           animation: none;
+        }
+        .igniting #ignite {
+          display: none;
+        }
+        #live .reveal > * {
+          transform: none;
+          opacity: 1;
+        }
+        #live.show .reveal > *,
+        #live.show h1 .reveal.brandline > b {
+          animation: none;
+        }
+      }
+      @media (max-width: 560px) {
+        .rail .hide-sm {
+          display: none;
         }
       }
     </style>
   </head>
   <body class="launch">
-    <div class="glow" aria-hidden="true"></div>
-    <canvas id="burst" aria-hidden="true"></canvas>
+    <div class="grid-bg" aria-hidden="true"></div>
+    <canvas id="fx" aria-hidden="true"></canvas>
+    <canvas id="ecg" aria-hidden="true"></canvas>
+
+    <header class="rail top">
+      <span class="brand"><span class="logo">S</span> SOBO Medical</span>
+      <span class="status"><i></i><span id="statusTxt">Standby</span></span>
+    </header>
 
     <main class="stage" aria-live="polite">
-      <section id="ready">
-        <span class="brandline"><span class="logo">S</span> SOBO &middot; MEDICAL</span>
-        <h1>Explore the human body <em>in 3D</em></h1>
-        <p class="sub">Interactive anatomy, quizzes and sprints for medical students.</p>
-        <button class="btn" id="go">&#128640; Launch</button>
-        <p class="hint">or press <kbd>Enter</kbd></p>
+      <section class="panel" id="ready">
+        <span class="eyebrow">Official platform launch</span>
+        <h1>SOBO Medical<br /><span class="muted-line">Anatomy &amp; Assessment</span></h1>
+        <p class="sub">
+          Interactive 3D human anatomy, structured assessments and performance
+          analytics for medical education.
+        </p>
+        <div class="rule"></div>
+        <button id="go" type="button">
+          Launch platform
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" /></svg>
+        </button>
+        <p class="hint">Press Enter to begin</p>
       </section>
 
-      <section id="counting" hidden>
-        <div class="count">
+      <section class="panel" id="counting" hidden>
+        <span class="eyebrow">Launch sequence</span>
+        <div class="dial" id="dial">
           <svg viewBox="0 0 100 100" aria-hidden="true">
-            <defs>
-              <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stop-color="#6fa2ff" />
-                <stop offset="50%" stop-color="#a98bff" />
-                <stop offset="100%" stop-color="#eaa6d9" />
-              </linearGradient>
-            </defs>
-            <circle class="track" cx="50" cy="50" r="46" />
-            <circle class="arc" id="arc" cx="50" cy="50" r="46" pathLength="100" stroke-dasharray="100" stroke-dashoffset="0" />
+            <g id="ticks"></g>
+            <circle class="inner" cx="50" cy="50" r="40" />
+            <circle class="spin" cx="50" cy="50" r="43" pathLength="138" />
+            <circle class="spin s2" cx="50" cy="50" r="37.5" pathLength="66" />
           </svg>
-          <b id="num">5</b>
+          <div class="digits" aria-label="seconds remaining"><span id="num">05</span></div>
+          <span class="unit">seconds</span>
         </div>
-        <div class="count-label">Launching SOBO Medical</div>
+        <div class="count-meta" id="meta"></div>
       </section>
 
-      <section id="live" class="live-msg" hidden>
-        <span class="brandline"><span class="logo">S</span> SOBO &middot; MEDICAL</span>
-        <h1>We are <em>live!</em></h1>
-        <p class="sub">Taking you in&hellip;</p>
+      <section class="panel" id="live" hidden>
+        <span class="reveal"><span class="eyebrow" style="--i: 0">System online</span></span>
+        <h1>
+          <span class="reveal brandline"><b id="brandText">SOBO Medical</b></span>
+          <span class="reveal"><span class="muted-line" style="--i: 2">is now live</span></span>
+        </h1>
+        <div class="rule"></div>
+        <span class="reveal"><span class="sub" style="--i: 4; display: inline-block">Welcome to the future of anatomy learning.</span></span>
+        <span class="reveal enter-wrap"
+          ><button id="enter" class="cta" type="button" style="--i: 6" tabindex="-1">
+            Enter SOBO Medical
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" /></svg></button
+        ></span>
       </section>
     </main>
 
+    <div id="ignite" aria-hidden="true">
+      <div class="veil"></div>
+      <div class="ring"></div>
+      <div class="ring r2"></div>
+      <div class="ring r3"></div>
+      <div class="core"></div>
+      <div class="scan up"></div>
+      <div class="scan down"></div>
+    </div>
+
+    <footer class="rail bottom">
+      <span class="hide-sm">Medical education platform</span>
+      <span id="clock"></span>
+    </footer>
+
     <script>
-      // Launch ceremony: press the button -> 5-second countdown -> "live" burst -> open the website.
+      // Launch ceremony:
+      //   standby  - a drifting "neural network" of particles, a resting ECG
+      //   countdown- particles are pulled into a vortex around the dial, faster every second; one heartbeat per second
+      //   zero     - everything implodes to a point, then ignites (flash, scan lines, rings) and bursts outward
+      //   live     - the particles assemble into "SOBO Medical", the real text fades in, then the site opens
       const COUNT_FROM = 5; // seconds
-      const ENTER_AFTER_MS = 2600; // how long the "We are live" screen shows before opening the site
-      const DESTINATION = "index.html"; // signs in or opens the right dashboard
+      const DESTINATION = "index.html"; // signs in, or opens the right dashboard
+      const STEPS = [
+        "Loading anatomy atlas",
+        "Calibrating 3D renderer",
+        "Syncing assessment bank",
+        "Securing sessions",
+        "Final checks",
+      ];
 
       const $ = (id) => document.getElementById(id);
       const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-      let started = false;
+      const pad = (n) => String(n).padStart(2, "0");
+      const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+      const clamp01 = (v) => Math.max(0, Math.min(1, v));
+      const easeInOut = (u) => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);
 
+      // ---- clock in the bottom rail ----
+      const tickClock = () => {
+        const d = new Date();
+        $("clock").textContent =
+          d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" }) +
+          "  " + [d.getHours(), d.getMinutes(), d.getSeconds()].map(pad).join(":");
+      };
+      tickClock();
+      setInterval(tickClock, 1000);
+
+      // ---- dial ticks (60, every 5th is longer) ----
+      $("ticks").innerHTML = Array.from({ length: 60 }, (_, i) => {
+        const a = (i / 60) * Math.PI * 2 - Math.PI / 2,
+          major = i % 5 === 0,
+          r1 = major ? 45 : 46.5,
+          r2 = 49;
+        const p = (r) => `${(50 + Math.cos(a) * r).toFixed(2)} ${(50 + Math.sin(a) * r).toFixed(2)}`;
+        return `<path class="tick${major ? " major" : ""}" d="M${p(r1)} L${p(r2)}" />`;
+      }).join("");
+      const ticks = [...document.querySelectorAll("#ticks .tick")];
+
+      // =============================== ECG monitor ===============================
+      const cv = $("ecg"),
+        ctx = cv.getContext("2d");
+      let W = 0, H = 0, dpr = 1, trace = [], pen = 0, lastT = 0, beats = [], ecgGain = 1;
+      const SPEED = 260; // px per second
+      function size() {
+        dpr = Math.min(devicePixelRatio || 1, 2);
+        W = cv.clientWidth;
+        H = cv.clientHeight;
+        cv.width = W * dpr;
+        cv.height = H * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        trace = new Array(Math.ceil(W) + 1).fill(0);
+        pen = 0;
+      }
+      addEventListener("resize", size);
+      size();
+      const bump = (u, a, b, h) => (u >= a && u <= b ? h * Math.sin((Math.PI * (u - a)) / (b - a)) : 0);
+      const tri = (u, a, m, b, h) => (u < a || u > b ? 0 : u <= m ? (h * (u - a)) / (m - a) : (h * (b - u)) / (b - m));
+      const pqrst = (u) =>
+        bump(u, 0, 0.09, 0.1) + tri(u, 0.13, 0.145, 0.16, -0.12) + tri(u, 0.155, 0.18, 0.205, 1) +
+        tri(u, 0.2, 0.22, 0.245, -0.28) + bump(u, 0.32, 0.5, 0.22);
+      function signal(t) {
+        let v = 0;
+        for (const b of beats) v += pqrst(t - b.t) * b.g;
+        return v + (Math.random() - 0.5) * 0.012;
+      }
+      let onBeat = () => {};
+      function beat(g = ecgGain) {
+        beats.push({ t: performance.now() / 1000, g });
+        if (beats.length > 4) beats.shift();
+        onBeat();
+      }
+      let restTimer = setInterval(beat, 1150);
+      beat();
+
+      function drawEcg(now) {
+        const t = now / 1000;
+        const dt = Math.min(0.05, lastT ? t - lastT : 0);
+        lastT = t;
+        const steps = Math.max(1, Math.round(SPEED * dt));
+        for (let i = 0; i < steps; i++) {
+          pen = (pen + 1) % trace.length;
+          trace[pen] = signal(t - (steps - 1 - i) / SPEED);
+        }
+        ctx.clearRect(0, 0, W, H);
+        const mid = H * 0.58, amp = H * 0.4, gap = 36;
+        ctx.lineWidth = 1.6;
+        ctx.lineJoin = "round";
+        ctx.strokeStyle = "#26bbff";
+        ctx.shadowColor = "rgba(38,187,255,0.75)";
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        let drawing = false;
+        for (let x = 0; x < trace.length; x++) {
+          const ahead = (x - pen + trace.length) % trace.length;
+          if (ahead > 0 && ahead <= gap) {
+            drawing = false;
+            continue;
+          }
+          const y = mid - trace[x] * amp;
+          drawing ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+          drawing = true;
+        }
+        ctx.stroke();
+        ctx.shadowBlur = 16;
+        ctx.fillStyle = "#c9f0ff";
+        ctx.beginPath();
+        ctx.arc(pen, mid - trace[pen] * amp, 2.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // =============================== Particle field ===============================
+      const fx = $("fx"),
+        fc = fx.getContext("2d");
+      let FW = 0, FH = 0, fdpr = 1;
+      function fxSize() {
+        fdpr = Math.min(devicePixelRatio || 1, 2);
+        FW = innerWidth;
+        FH = innerHeight;
+        fx.width = FW * fdpr;
+        fx.height = FH * fdpr;
+        fc.setTransform(fdpr, 0, 0, fdpr, 0, 0);
+      }
+      addEventListener("resize", fxSize);
+      fxSize();
+
+      const N = innerWidth < 700 ? 520 : 1100;
+      const LINKS = innerWidth < 700 ? 70 : 140; // particles that draw network lines while drifting
+      const COLORS = ["38,187,255", "38,187,255", "111,162,255", "185,140,255", "230,248,255"];
+      const P = Array.from({ length: N }, () => ({
+        x: Math.random() * FW,
+        y: Math.random() * FH,
+        vx: (Math.random() - 0.5) * 0.35,
+        vy: (Math.random() - 0.5) * 0.35,
+        s: Math.random() * 1.5 + 0.5,
+        a: Math.random() * 0.45 + 0.25,
+        c: COLORS[(Math.random() * COLORS.length) | 0],
+        d: Math.random(), // per-particle delay / phase
+        ro: (Math.random() - 0.5) * 2, // orbit spread
+        ang: 0, rad: 0, kick: 0, sx: 0, sy: 0, tx: null, ty: null,
+      }));
+      let mode = "drift", modeT = 0, prog = 0, fade = 1;
+      let cx = FW / 2, cy = FH / 2, orbitR = 200;
+      const mouse = { x: -1e4, y: -1e4 };
+      addEventListener("pointermove", (e) => ((mouse.x = e.clientX), (mouse.y = e.clientY)));
+      addEventListener("pointerleave", () => ((mouse.x = mouse.y = -1e4)));
+
+      function setMode(m) {
+        mode = m;
+        modeT = performance.now() / 1000;
+        if (m === "vortex" || m === "implode")
+          P.forEach((p) => {
+            if (m === "vortex") {
+              p.ang = Math.atan2(p.y - cy, p.x - cx);
+              p.rad = Math.hypot(p.x - cx, p.y - cy);
+            }
+          });
+        if (m === "explode")
+          P.forEach((p) => {
+            const a = Math.random() * Math.PI * 2,
+              v = 6 + Math.random() * 18;
+            p.x = cx + (Math.random() - 0.5) * 4;
+            p.y = cy + (Math.random() - 0.5) * 4;
+            p.vx = Math.cos(a) * v;
+            p.vy = Math.sin(a) * v;
+          });
+        if (m === "assemble") P.forEach((p) => ((p.sx = p.x), (p.sy = p.y)));
+        if (m === "dissolve")
+          P.forEach((p) => {
+            p.vx = (Math.random() - 0.5) * 1.6;
+            p.vy = (Math.random() - 0.5) * 1.6 - 0.3;
+          });
+      }
+      // Every second of the countdown (each heartbeat) the ring breathes: a fast burst outward,
+      // then a slower pull back in to the dial before the next second.
+      let pulseT = -10;
+      onBeat = () => {
+        if (mode === "vortex") pulseT = performance.now() / 1000;
+      };
+      const easeOut = (u) => 1 - Math.pow(1 - u, 3);
+      function breath(ph) {
+        if (ph < 0 || ph > 0.95) return 0;
+        if (ph < 0.22) return easeOut(ph / 0.22); // out
+        return 1 - easeInOut((ph - 0.22) / 0.73); // back in
+      }
+
+      // Points that spell out an element's text, at its exact position on screen
+      function textTargets(el, box) {
+        const r = box.getBoundingClientRect(),
+          cs = getComputedStyle(el);
+        const fs = parseFloat(cs.fontSize);
+        const c = document.createElement("canvas");
+        c.width = Math.ceil(r.width);
+        c.height = Math.ceil(r.height);
+        const g = c.getContext("2d");
+        g.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+        if ("letterSpacing" in g) g.letterSpacing = cs.letterSpacing;
+        g.textAlign = "center";
+        g.textBaseline = "middle";
+        g.fillStyle = "#fff";
+        g.fillText(el.textContent, c.width / 2, c.height / 2 + fs * 0.04);
+        const data = g.getImageData(0, 0, c.width, c.height).data;
+        const step = Math.max(2, Math.round(fs / 26));
+        const pts = [];
+        for (let y = 0; y < c.height; y += step)
+          for (let x = 0; x < c.width; x += step)
+            if (data[(y * c.width + x) * 4 + 3] > 140) pts.push([r.left + x, r.top + y]);
+        for (let i = pts.length - 1; i > 0; i--) {
+          const j = (Math.random() * (i + 1)) | 0;
+          [pts[i], pts[j]] = [pts[j], pts[i]];
+        }
+        return pts;
+      }
+      function assignTargets(pts) {
+        P.forEach((p, i) => {
+          const t = pts.length ? pts[i % pts.length] : null;
+          // spare particles (more particles than points) join in only when the text needs them
+          if (t && i < Math.max(pts.length, N * 0.7)) {
+            p.tx = t[0] + (Math.random() - 0.5) * 1.2;
+            p.ty = t[1] + (Math.random() - 0.5) * 1.2;
+          } else p.tx = p.ty = null;
+        });
+      }
+
+      function stepParticles(now, dt) {
+        const t = now / 1000,
+          since = t - modeT,
+          f = dt * 60; // frame factor
+        fc.clearRect(0, 0, FW, FH);
+        fc.globalCompositeOperation = "lighter";
+
+        if (mode === "drift") {
+          for (const p of P) {
+            const dx = p.x - mouse.x, dy = p.y - mouse.y, d2 = dx * dx + dy * dy;
+            if (d2 < 140 * 140) {
+              const d = Math.sqrt(d2) || 1, push = (1 - d / 140) * 0.6;
+              p.vx += (dx / d) * push * 0.2 * f;
+              p.vy += (dy / d) * push * 0.2 * f;
+            }
+            p.vx = p.vx * 0.985 + (Math.random() - 0.5) * 0.02;
+            p.vy = p.vy * 0.985 + (Math.random() - 0.5) * 0.02;
+            const sp = Math.hypot(p.vx, p.vy);
+            if (sp < 0.12) ((p.vx *= 1.05), (p.vy *= 1.05));
+            p.x += p.vx * f;
+            p.y += p.vy * f;
+            if (p.x < -10) p.x = FW + 10;
+            if (p.x > FW + 10) p.x = -10;
+            if (p.y < -10) p.y = FH + 10;
+            if (p.y > FH + 10) p.y = -10;
+          }
+          // network lines between nearby "neurons"
+          fc.lineWidth = 0.6;
+          for (let i = 0; i < LINKS; i++)
+            for (let j = 0; j < i; j++) {
+              const a = P[i], b = P[j];
+              const dx = a.x - b.x, dy = a.y - b.y, d2 = dx * dx + dy * dy;
+              if (d2 < 130 * 130) {
+                fc.strokeStyle = `rgba(38,187,255,${(1 - Math.sqrt(d2) / 130) * 0.22 * fade})`;
+                fc.beginPath();
+                fc.moveTo(a.x, a.y);
+                fc.lineTo(b.x, b.y);
+                fc.stroke();
+              }
+            }
+        } else if (mode === "vortex" || mode === "implode") {
+          const omega = mode === "implode" ? 7 : 0.35 + prog * 2.6;
+          const pull = mode === "implode" ? clamp01(since / 0.42) : 0;
+          for (const p of P) {
+            const target = mode === "implode" ? 0 : orbitR + p.ro * (70 - prog * 45) + Math.sin(t * 2 + p.d * 6) * 6;
+            p.rad += (target - p.rad) * Math.min(1, dt * (mode === "implode" ? 9 : 1.6));
+            if (mode === "implode") p.rad *= 1 - pull * 0.25;
+            // outward burst: each particle has its own reach, so the ring explodes into a cloud and re-forms
+            p.kick = mode === "vortex" ? breath(t - pulseT - p.d * 0.06) * (50 + 190 * p.d) * (0.7 + prog * 0.6) : p.kick * Math.pow(0.8, f);
+            p.ang += omega * dt * (0.7 + p.d * 0.6);
+            const r = Math.max(0, p.rad + p.kick);
+            p.x = cx + Math.cos(p.ang) * r;
+            p.y = cy + Math.sin(p.ang) * r * 0.96;
+          }
+        } else if (mode === "explode") {
+          for (const p of P) {
+            p.x += p.vx * f;
+            p.y += p.vy * f;
+            p.vx *= Math.pow(0.93, f);
+            p.vy *= Math.pow(0.93, f);
+          }
+        } else if (mode === "assemble") {
+          for (const p of P) {
+            if (p.tx == null) {
+              p.x += p.vx * f;
+              p.y += p.vy * f;
+              p.vx *= Math.pow(0.95, f);
+              p.vy *= Math.pow(0.95, f);
+              continue;
+            }
+            const u = easeInOut(clamp01((since - p.d * 0.35) / 0.95));
+            const swirl = (1 - u) * 60 * Math.sin(p.d * 12 + since * 3);
+            p.x = p.sx + (p.tx - p.sx) * u + swirl * (1 - u);
+            p.y = p.sy + (p.ty - p.sy) * u + swirl * 0.4 * (1 - u);
+          }
+        } else if (mode === "dissolve") {
+          for (const p of P) {
+            p.x += p.vx * f;
+            p.y += p.vy * f;
+            p.vx *= Math.pow(0.985, f);
+            p.vy *= Math.pow(0.985, f);
+          }
+          if (since > 1.6) setMode("drift");
+        }
+
+        // draw the particles
+        const glow = mode === "assemble" ? 1.25 : mode === "explode" ? 1.4 : 1;
+        const dim = mode === "dissolve" ? Math.max(0.35, 1 - (since / 1.6) * 0.65) : 1;
+        for (const p of P) {
+          let a = p.a * glow * dim * fade;
+          if (mode === "assemble" && p.tx == null) a *= 0.35;
+          if (mode === "implode") a = Math.min(1, a * (1 + since * 3));
+          fc.fillStyle = `rgba(${p.c},${Math.min(1, a)})`;
+          const s = mode === "assemble" && p.tx != null ? p.s * 0.9 + 0.4 : p.s;
+          fc.fillRect(p.x - s / 2, p.y - s / 2, s, s);
+        }
+        fc.globalCompositeOperation = "source-over";
+      }
+
+      let lastFrame = 0;
+      function frame(now) {
+        const dt = Math.min(0.05, lastFrame ? (now - lastFrame) / 1000 : 0.016);
+        lastFrame = now;
+        drawEcg(now);
+        stepParticles(now, dt);
+        requestAnimationFrame(frame);
+      }
+      if (reduced) {
+        // still picture: a flat line with a single beat
+        ctx.strokeStyle = "#26bbff";
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        for (let x = 0; x < W; x++) {
+          const y = H * 0.58 - pqrst((x - W * 0.45) / SPEED) * H * 0.4;
+          x ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+        }
+        ctx.stroke();
+      } else requestAnimationFrame(frame);
+
+      // =============================== Launch sequence ===============================
+      let started = false;
       function start() {
         if (started) return;
         started = true;
+        clearInterval(restTimer);
+        document.body.classList.add("counting");
+        $("statusTxt").textContent = "Launch sequence";
         $("ready").hidden = true;
         $("counting").hidden = false;
-        const arc = $("arc"),
-          num = $("num"),
-          t0 = performance.now(),
+        // centre the vortex on the dial
+        const r = $("dial").getBoundingClientRect();
+        cx = r.left + r.width / 2;
+        cy = r.top + r.height / 2;
+        orbitR = r.width / 2 + 46;
+        setMode("vortex");
+        const t0 = performance.now(),
           total = COUNT_FROM * 1000;
-        let shown = COUNT_FROM;
-        num.textContent = shown;
-        (function frame(now) {
+        let shown = COUNT_FROM, step = -1;
+        beat();
+        (function tick(now) {
           const left = Math.max(0, total - (now - t0));
-          arc.style.strokeDashoffset = String(100 - (left / total) * 100);
+          prog = 1 - left / total;
+          const lit = Math.round(prog * 60);
+          ticks.forEach((el, i) => el.classList.toggle("on", i < lit));
           const n = Math.ceil(left / 1000);
+          const s = Math.min(STEPS.length - 1, Math.floor(prog * STEPS.length));
+          if (s !== step) {
+            step = s;
+            $("meta").innerHTML = `<span><b>${pad(s + 1)}/${pad(STEPS.length)}</b>${STEPS[s]}</span>`;
+          }
           if (n !== shown && n > 0) {
             shown = n;
-            num.textContent = n;
-            // restart the number's pop-in animation
-            num.style.animation = "none";
+            const num = $("num");
+            num.textContent = pad(n);
+            num.style.animation = "none"; // replay the digit transition
             void num.offsetWidth;
             num.style.animation = "";
+            ecgGain = 1 + prog * 0.5;
+            beat();
           }
-          if (left > 0) requestAnimationFrame(frame);
+          if (left > 0) requestAnimationFrame(tick);
           else goLive();
         })(t0);
       }
 
-      function goLive() {
+      async function goLive() {
+        $("num").textContent = "00";
+        $("meta").innerHTML = `<span><b>OK</b>All systems ready</span>`;
+        // 1) everything collapses into the centre of the dial
+        setMode("implode");
+        $("counting").classList.add("outro");
+        beat(1.6);
+        await wait(reduced ? 0 : 450);
         $("counting").hidden = true;
+        // 2) ignition: flash, scan lines, rings, burst
+        document.body.classList.remove("counting");
+        document.body.classList.add("igniting", "live");
+        document.body.style.setProperty("--cx", cx + "px");
+        document.body.style.setProperty("--cy", cy + "px");
+        $("statusTxt").textContent = "Online";
+        clearInterval(restTimer);
+        ecgGain = 1.2;
+        restTimer = setInterval(beat, 820);
+        await wait(reduced ? 0 : 380);
+        setMode("explode");
+        document.body.classList.add("shake");
+        beat(1.8);
+        // measure where the brand text will sit (the panel is laid out but still invisible)
         $("live").hidden = false;
-        document.body.classList.add("live");
-        if (!reduced) {
-          const f = document.createElement("div");
-          f.className = "flash";
-          document.body.appendChild(f);
-          burst();
-        }
-        setTimeout(() => location.assign(DESTINATION), ENTER_AFTER_MS);
+        const targets = textTargets($("brandText"), $("brandText").parentElement);
+        assignTargets(targets);
+        await wait(reduced ? 0 : 520);
+        document.body.classList.remove("shake");
+        // 3) the particles fly in and write the name
+        setMode("assemble");
+        await wait(reduced ? 0 : 1250);
+        // 4) the real text takes over; particles drift away
+        void $("live").offsetWidth;
+        $("live").classList.add("show");
+        setMode("dissolve");
+        setTimeout(() => document.body.classList.remove("igniting"), 600);
+        // the Enter button is the last line to slide in; after that it pulses and takes the keyboard focus
+        setTimeout(() => {
+          $("live").classList.add("ready");
+          $("enter").tabIndex = 0;
+          $("enter").focus({ preventScroll: true });
+        }, reduced ? 0 : 1700);
       }
 
-      // Confetti burst from the centre of the screen
-      function burst() {
-        const c = $("burst"),
-          ctx = c.getContext("2d"),
-          dpr = Math.min(devicePixelRatio || 1, 2);
-        c.width = innerWidth * dpr;
-        c.height = innerHeight * dpr;
-        ctx.scale(dpr, dpr);
-        const colors = ["#26bbff", "#6fa2ff", "#a98bff", "#eaa6d9", "#ffffff", "#3ddc97"];
-        const cx = innerWidth / 2,
-          cy = innerHeight / 2;
-        const bits = Array.from({ length: 160 }, () => {
-          const a = Math.random() * Math.PI * 2,
-            v = 4 + Math.random() * 10;
-          return {
-            x: cx,
-            y: cy,
-            vx: Math.cos(a) * v,
-            vy: Math.sin(a) * v - 3,
-            r: Math.random() * Math.PI,
-            vr: (Math.random() - 0.5) * 0.3,
-            w: 5 + Math.random() * 6,
-            h: 3 + Math.random() * 4,
-            c: colors[(Math.random() * colors.length) | 0],
-          };
-        });
-        const t0 = performance.now();
-        (function draw(now) {
-          const life = (now - t0) / 2400;
-          ctx.clearRect(0, 0, innerWidth, innerHeight);
-          ctx.globalAlpha = Math.max(0, 1 - life);
-          bits.forEach((b) => {
-            b.vy += 0.18;
-            b.vx *= 0.99;
-            b.x += b.vx;
-            b.y += b.vy;
-            b.r += b.vr;
-            ctx.save();
-            ctx.translate(b.x, b.y);
-            ctx.rotate(b.r);
-            ctx.fillStyle = b.c;
-            ctx.fillRect(-b.w / 2, -b.h / 2, b.w, b.h);
-            ctx.restore();
-          });
-          if (life < 1) requestAnimationFrame(draw);
-        })(t0);
+      let entering = false;
+      function enterSite() {
+        if (entering) return;
+        entering = true;
+        document.body.classList.add("leaving");
+        setTimeout(() => location.assign(DESTINATION), reduced ? 0 : 850);
       }
+      $("enter").addEventListener("click", enterSite);
+
+      // Coming back with the browser's Back button: start fresh instead of a faded-out page
+      addEventListener("pageshow", (e) => e.persisted && location.reload());
 
       $("go").addEventListener("click", start);
       document.addEventListener("keydown", (e) => {

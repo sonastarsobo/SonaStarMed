@@ -99,7 +99,7 @@ async function dashboard() {
   const stat = (v, l, cls = "") =>
     `<div class="stat ${cls}"><b>${v}</b><span>${l}</span></div>`;
   const pending = o.questions.pending_review + o.structures_pending_review;
-  $("root").innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px"><h1 style="margin:0">Teacher dashboard</h1><a class="btn secondary" href="../launch.html" title="Open the launch page with the countdown">&#128640; Launch</a></div>
+  $("root").innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px"><h1 style="margin:0">Teacher dashboard</h1><a class="btn secondary" href="../launch.html" title="Open the launch page with the countdown">Launch platform &rarr;</a></div>
     ${pending ? `<div class="feedback bad" style="margin-bottom:14px"><b>${pending} item(s) awaiting medical review</b>: ${o.questions.pending_review} question(s) <a href="questions.html?review=PENDING">review</a>, ${o.structures_pending_review} structure(s) <a href="anatomy.html?review=PENDING">review</a>.</div>` : ""}
     <div class="grid">${stat(o.students, "Students")}${stat(o.active_users_7d, "Active users (7 days)")}${stat(`${o.quizzes.published} / ${o.quizzes.total}`, "Quizzes published")}${stat(o.questions.total, "Questions in bank")}
       ${stat(o.attempts.total, "Attempts")}${stat(pct(o.avg_score), "Average score")}${stat(pct(o.pass_rate), "Pass rate", "ok")}${stat(pct(o.completion_rate), "Completion rate")}</div>

@@ -1017,3 +1017,38 @@ tr.click td:first-child b {
 .submitted-card .stat b {
   font-size: 1.15rem;
 }
+
+/* small Launch button, top-right of the hero (above the level ring) */
+.dash-hero {
+  position: relative;
+}
+.hero-launch {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid rgba(38, 187, 255, 0.55);
+  border-radius: 999px;
+  background: rgba(38, 187, 255, 0.08);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.hero-launch:hover,
+.hero-launch:focus-visible {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #101014;
+  text-decoration: none;
+}
+.dash-hero .hero-level {
+  padding-top: 18px; /* keeps the ring clear of the Launch button */
+}
