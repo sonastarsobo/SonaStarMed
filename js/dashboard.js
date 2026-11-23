@@ -70,7 +70,8 @@ export async function initDashboard(profile) {
       : next
         ? `<a class="btn" href="assessment.html?quiz=${next.id}">Start: ${esc(next.title)} &rarr;</a>`
         : `<a class="btn" href="assessment.html">Browse quizzes</a>`) +
-    `<a class="btn secondary" href="learn.html">${icon("brain", 18)} Open Learn mode</a>`;
+    `<a class="btn secondary" href="learn.html">${icon("brain", 18)} Open Learn mode</a>` +
+    `<a class="btn secondary" href="../launch.html" title="Open the launch page with the countdown">&#128640; Launch</a>`;
   const lp = Math.max(0, Math.min(100, Number(g.level_progress) || 0));
   $("level").innerHTML = `<div class="level-ring" style="--p:${lp}"><div><span>Level</span><b>${esc(g.level)}</b></div></div>
     <div class="level-txt"><b>${esc(g.xp)} XP</b><span class="muted small">${g.next_level_xp != null ? `${g.next_level_xp - g.xp} XP to level ${g.level + 1}` : "Max level"}</span>
