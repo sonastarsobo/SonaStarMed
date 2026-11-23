@@ -310,7 +310,7 @@ export class QuestionView {
         if (!row) return;
         this.ans = { structure_id: row.id };
         show();
-        if (!this.immediate) this.emit(true);
+        this.emit(!this.immediate);
       };
     this.checkBar();
   }
@@ -330,7 +330,7 @@ export class QuestionView {
           (b.onclick = () => {
             this.ans.structure_ids = ids().filter((x) => x !== b.dataset.rm);
             show();
-            if (!this.immediate) this.emit(true);
+            this.emit(!this.immediate);
           }),
       );
       this.scene?.viewer.setMarks(this.scene.itemsFor(rows, PICK_COLOR));
@@ -345,14 +345,14 @@ export class QuestionView {
           ? ids().filter((x) => x !== row.id)
           : [...ids(), row.id];
         show();
-        if (!this.immediate) this.emit(true);
+        this.emit(!this.immediate);
       };
       this.scene.handlers.box = (rows, add) => {
         const have = new Set(add ? ids() : []);
         rows.forEach((r) => have.add(r.id));
         this.ans.structure_ids = [...have];
         show();
-        if (!this.immediate) this.emit(true);
+        this.emit(!this.immediate);
       };
     }
     this.checkBar();
@@ -382,7 +382,7 @@ export class QuestionView {
           (s.onchange = () => {
             this.ans.labels[+s.dataset.i] = s.value || null;
             draw();
-            if (!this.immediate) this.emit(true);
+            this.emit(!this.immediate);
           }),
       );
       this.checkBar();
@@ -406,7 +406,7 @@ export class QuestionView {
       touched = true;
       draw();
       this.ans = { order: [...order] };
-      if (!this.immediate) this.emit(true);
+      this.emit(!this.immediate);
     };
     const draw = () => {
       this.body.innerHTML = `<ol class="seq ${this.locked ? "locked" : ""}">${order.map((id, i) => `<li draggable="${!this.locked}" data-i="${i}"><span class="n">${i + 1}</span><span class="t">${esc(byId.get(id))}</span>${this.locked ? "" : `<button data-up="${i}" aria-label="Move up">&uarr;</button><button data-dn="${i}" aria-label="Move down">&darr;</button>`}</li>`).join("")}</ol>
@@ -427,7 +427,7 @@ export class QuestionView {
           touched = true;
           this.ans = { order: [...order] };
           draw();
-          if (!this.immediate) this.emit(true);
+          this.emit(!this.immediate);
         };
       let from = null;
       this.body.querySelectorAll("li").forEach((li) => {
@@ -623,6 +623,11 @@ async function showList(profile) {
       <div class="stat"><b>${avgBest == null ? "&mdash;" : pct(avgBest.toFixed(1))}</b><span>Avg best score</span></div>
       <div class="stat ${dueSoon.length ? "bad" : ""}"><b>${dueSoon.length}</b><span>Due in 3 days</span></div>
     </section>
+    <a class="sprint-banner" href="sprint.html">
+      <span class="sb-orb" aria-hidden="true"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg></span>
+      <div class="sb-txt"><span class="g-eyebrow">Practice arena &middot; 3D Spot</span><h3>Anatomy Sprint</h3><p class="muted small">60 seconds. A structure lights up on the 3D model; name it before time runs out. Streaks multiply your score.</p></div>
+      <span class="btn sb-play">Play &rarr;</span>
+    </a>
     ${
       open
         ? `<div class="resume-banner"><span class="pulse-dot"></span><div><b>${esc(open.title)}</b> is in progress<span class="muted small"> &middot; the timer keeps running while you are away</span></div><a class="btn small" href="assessment.html?attempt=${open.in_progress_attempt_id}">Resume &rarr;</a></div>`
@@ -651,7 +656,6 @@ async function showList(profile) {
         </div>
         <div id="quizGrid" class="grid cards"></div>
       </div>
-      <aside class="assess-side" id="gameCol"></aside>
     </div>`;
   ["fText", "fDiff", "fSort"].forEach((i) => ($(i).oninput = draw));
   $("fStatus").onclick = (e) => {
@@ -665,14 +669,6 @@ async function showList(profile) {
   };
   draw();
 
-  // The practice game loads separately so a slow model download never delays the quiz list
-  import("./game.js")
-    .then((m) => m.mountGame($("gameCol"), profile))
-    .catch((e) => {
-      console.error(e);
-      $("gameCol").innerHTML =
-        '<div class="card"><p class="msg error">The practice game could not be loaded.</p></div>';
-    });
 }
 
 // "Closes in 2 days" style label with an urgency level
@@ -851,11 +847,29 @@ async function runPlayer({ attemptId, previewQuiz, profile }) {
       a = answers.get(qq.id);
     a.answer = ans;
     renderNav();
-    if (!commit) return; // immediate-feedback draft: kept locally until "Check answer"
+    if (!commit) {
+      // "Check answer" quiz: the pick is a draft until checked, but it is kept when moving on
+      a.draft = true;
+      return;
+    }
+    a.draft = false;
     dirty.add(qq.id);
     if (immediate) {
       flush().then(() => render());
     } else schedule();
+  }
+  // Any pick the student left unchecked counts as their answer when they move to another question or submit
+  function commitDrafts() {
+    let any = false;
+    questions.forEach((qq) => {
+      const a = answers.get(qq.id);
+      if (a.draft && a.answer && Object.keys(a.answer).length && !a.feedback) {
+        dirty.add(qq.id);
+        any = true;
+      }
+      a.draft = false;
+    });
+    return any;
   }
 
   // ---- rendering ----
@@ -915,6 +929,7 @@ async function runPlayer({ attemptId, previewQuiz, profile }) {
   }
   const go = (i) => {
     if (i < 0 || i >= questions.length) return;
+    if (commitDrafts()) flush();
     idx = i;
     render();
   };
@@ -985,6 +1000,7 @@ async function runPlayer({ attemptId, previewQuiz, profile }) {
     finishing = true;
     clearInterval(tick);
     $("submit") && ($("submit").disabled = true);
+    commitDrafts();
     await flush();
     try {
       await rpc("submit_attempt", { p_attempt: attemptId });

@@ -1,12 +1,10 @@
-// Anatomy Sprint: a short, timed identification drill shown beside the quiz list on the Assessment page.
+// Anatomy Sprint: a short, timed 3D identification drill. It has its own page (student/sprint.html),
+// reached from the banner on the Assessment page.
 // It is practice only: scores stay in this browser (localStorage) and never reach the gradebook or XP.
 //
-// Modes
-//   spot: a structure is highlighted on the 3D model; pick its name from four options.
-//   clue: a function / location description (with the name masked) is shown; pick the structure.
+// 3D Spot: a structure is highlighted on the 3D model; pick its name from four options.
 // Distractors come from the same body system, preferring siblings in the hierarchy, so the choices
 // are plausible rather than obvious.
-import { supabase } from "./supabase.js";
 import { loadSystems, loadAllStructures } from "./anatomy.js";
 import { esc } from "./session.js";
 import { mountScene } from "./assessment.js";
@@ -16,23 +14,6 @@ const WRONG_PENALTY_MS = 3000;
 const SKIP_PENALTY_MS = 1000;
 const FAST_MS = 8000; // answers faster than this earn a speed bonus
 const HIGHLIGHT = "#26bbff";
-const MODES = {
-  spot: {
-    label: "3D Spot",
-    hint: "A structure lights up on the model. Name it.",
-  },
-  clue: {
-    label: "Clue",
-    hint: "Read a function or location description. Pick the structure.",
-  },
-};
-// Generic words that are left visible when a clue's name is masked
-const STOP = new Set(
-  "left right upper lower major minor anterior posterior superior inferior medial lateral artery arteries vein veins nerve nerves muscle muscles bone bones ligament group".split(
-    " ",
-  ),
-);
-
 const shuffle = (a) => {
   a = [...a];
   for (let i = a.length - 1; i > 0; i--) {
@@ -41,22 +22,7 @@ const shuffle = (a) => {
   }
   return a;
 };
-const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const fmt = (n) => Math.round(n).toLocaleString();
-
-function maskName(text, name) {
-  let t = String(text);
-  const parts = [
-    name,
-    ...name
-      .split(/[\s,()/-]+/)
-      .filter((w) => w.length > 4 && !STOP.has(w.toLowerCase())),
-  ];
-  parts.forEach((p) => {
-    t = t.replace(new RegExp(reEsc(p), "gi"), "▁▁▁");
-  });
-  return t.length > 260 ? t.slice(0, 257).trimEnd() + "..." : t;
-}
 
 // ---------- personal records (this browser only) ----------
 function recordKey(profile, mode, sys) {
@@ -75,11 +41,11 @@ function saveRecord(key, rec) {
   } catch {}
 }
 
-export async function mountGame(root, profile) {
+export async function mountGame(root, profile, { autostart = false, sys = "" } = {}) {
   root.innerHTML = `<div class="card game">
     <div class="g-top">
-      <div><span class="g-eyebrow">Practice arena</span><h2>Anatomy Sprint</h2></div>
-      <button class="btn small secondary g-expand" id="gExpand" title="Wider game area">&#x2922; Expand</button>
+      <div><span class="g-eyebrow">3D Spot &middot; Practice arena</span><h2>Anatomy Sprint</h2></div>
+      <a class="btn small secondary" href="assessment.html">&larr; Back to assessments</a>
     </div>
     <div id="gMenu"><p class="muted small">Loading anatomy...</p></div>
     <div id="gHud" class="g-hud" hidden></div>
@@ -88,12 +54,6 @@ export async function mountGame(root, profile) {
     <div id="gDone" hidden></div>
   </div>`;
   const $g = (id) => root.querySelector("#" + id);
-  const layout = root.closest(".assess-layout");
-  $g("gExpand").onclick = () => {
-    const wide = layout?.classList.toggle("game-wide");
-    $g("gExpand").innerHTML = wide ? "&#x2921; Collapse" : "&#x2922; Expand";
-    if (wide) root.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
 
   let systems, all;
   try {
@@ -108,21 +68,23 @@ export async function mountGame(root, profile) {
   const modelSystems = systems.filter((s) =>
     all.some((r) => r.system_id === s.id && r.model_file_path),
   );
-  let clueRows = null; // fetched the first time Clue mode starts
+  if (!modelSystems.length) {
+    $g("gMenu").innerHTML =
+      '<p class="msg error">No 3D models have been uploaded yet, so there is nothing to spot.</p>';
+    return;
+  }
   let scene = null;
 
   const state = {
-    mode: modelSystems.length ? "spot" : "clue",
-    sys: modelSystems[0]?.id || "",
+    mode: "spot",
+    sys: modelSystems.some((s) => s.id === sys) ? sys : modelSystems[0].id,
   };
 
   // ======================= menu =======================
   function drawMenu() {
     show("gMenu");
-    const spot = state.mode === "spot";
-    if (spot && !modelSystems.some((s) => s.id === state.sys))
-      state.sys = modelSystems[0]?.id || "";
-    const sysOpts = (spot ? modelSystems : systems)
+    if (!modelSystems.some((s) => s.id === state.sys)) state.sys = modelSystems[0].id;
+    const sysOpts = modelSystems
       .map(
         (s) =>
           `<option value="${s.id}" ${s.id === state.sys ? "selected" : ""}>${esc(s.name)}</option>`,
@@ -132,15 +94,9 @@ export async function mountGame(root, profile) {
     const runs = rec.runs.slice(-8);
     const maxRun = Math.max(1, ...runs);
     $g("gMenu").innerHTML = `
-      <div class="seg" role="tablist" aria-label="Game mode">${Object.entries(MODES)
-        .map(
-          ([k, m]) =>
-            `<button role="tab" data-mode="${k}" aria-selected="${k === state.mode}" ${k === "spot" && !modelSystems.length ? 'disabled title="No 3D models uploaded yet"' : ""}>${m.label}</button>`,
-        )
-        .join("")}</div>
-      <p class="g-hint">${MODES[state.mode].hint}</p>
+      <p class="g-hint">A structure lights up on the 3D model. Name it before the clock runs out.</p>
       <label for="gSys">Body system</label>
-      <select id="gSys">${spot ? "" : `<option value="" ${!state.sys ? "selected" : ""}>All systems</option>`}${sysOpts}</select>
+      <select id="gSys">${sysOpts}</select>
       <div class="g-rules">
         <div><b>60s</b><span>round</span></div>
         <div><b>&times;3</b><span>max streak bonus</span></div>
@@ -161,17 +117,11 @@ export async function mountGame(root, profile) {
       </div>
       <button class="btn g-start" id="gStart">Start round <kbd>Enter</kbd></button>
       <p class="small muted g-foot">Practice only: scores stay on this device and do not affect grades or XP.</p>`;
-    $g("gMenu")
-      .querySelectorAll("[data-mode]")
-      .forEach(
-        (b) =>
-          (b.onclick = () => {
-            state.mode = b.dataset.mode;
-            drawMenu();
-          }),
-      );
     $g("gSys").onchange = (e) => {
       state.sys = e.target.value;
+      try {
+        localStorage.setItem("sprint:lastSys", state.sys);
+      } catch {}
       drawMenu();
     };
     $g("gStart").onclick = start;
@@ -196,7 +146,7 @@ export async function mountGame(root, profile) {
         btn.innerHTML = "Start round <kbd>Enter</kbd>";
         $g("gMenu").insertAdjacentHTML(
           "beforeend",
-          `<p class="msg error">Not enough ${state.mode === "clue" ? "described " : ""}structures in this system to play. Try another system${state.mode === "spot" ? " or Clue mode" : ""}.</p>`,
+          `<p class="msg error">Not enough 3D structures in this system to play. Pick another system.</p>`,
         );
         return;
       }
@@ -215,7 +165,7 @@ export async function mountGame(root, profile) {
         locked: false,
         over: false,
       };
-      show("gHud", "gPlay", ...(state.mode === "spot" ? ["gStage"] : []));
+      show("gHud", "gPlay", "gStage");
       await countdown();
       run.endAt = performance.now() + ROUND_MS;
       tick();
@@ -244,18 +194,6 @@ export async function mountGame(root, profile) {
       scene.setStatus("");
       return all.filter((r) => r.system_id === state.sys && r.model_object_id);
     }
-    if (!clueRows) {
-      const { data, error } = await supabase
-        .from("anatomy_structures")
-        .select("id,system_id,parent_id,name,function,location")
-        .or("function.not.is.null,location.not.is.null")
-        .limit(3000);
-      if (error) throw error;
-      clueRows = data.filter(
-        (r) => (r.function || "").trim().length >= 12 || (r.location || "").trim().length >= 12,
-      );
-    }
-    return clueRows.filter((r) => !state.sys || r.system_id === state.sys);
   }
 
   function countdown() {
@@ -304,7 +242,7 @@ export async function mountGame(root, profile) {
   }
 
   function pickOptions(target) {
-    const sameSys = (state.mode === "spot" ? run.pool : all).filter(
+    const sameSys = run.pool.filter(
       (r) => r.system_id === target.system_id && r.id !== target.id,
     );
     const siblings = shuffle(
@@ -347,14 +285,7 @@ export async function mountGame(root, profile) {
     run.q = { target, opts, t0: performance.now() };
     run.locked = false;
 
-    let prompt;
-    if (state.mode === "spot") {
-      prompt = `<p class="g-q">Identify the highlighted structure</p>`;
-    } else {
-      const useFn = (target.function || "").trim().length >= 12 && (!target.location || Math.random() < 0.6);
-      const text = useFn ? target.function : target.location;
-      prompt = `<div class="g-clue"><span class="g-label">${useFn ? "Function" : "Location"}${state.sys ? "" : " &middot; " + esc(sysName.get(target.system_id) || "")}</span><p>${esc(maskName(text, target.name))}</p></div><p class="g-q">Which structure is this?</p>`;
-    }
+    const prompt = `<p class="g-q">Identify the highlighted structure</p>`;
     $g("gPlay").innerHTML = `${prompt}
       <div class="g-opts">${opts
         .map(
@@ -446,7 +377,7 @@ export async function mountGame(root, profile) {
             ? '<p class="muted small">No misses this round. Nicely done.</p>'
             : ""
       }
-      <div class="row g-again"><button class="btn" id="gAgain">Play again <kbd>Enter</kbd></button><button class="btn secondary" id="gMenuBtn">Change mode</button></div>`;
+      <div class="row g-again"><button class="btn" id="gAgain">Play again <kbd>Enter</kbd></button><button class="btn secondary" id="gMenuBtn">Change system</button></div>`;
     $g("gAgain").onclick = () => {
       drawMenu();
       start();
@@ -486,4 +417,5 @@ export async function mountGame(root, profile) {
   });
 
   drawMenu();
+  if (autostart) start();
 }
