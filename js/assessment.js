@@ -22,6 +22,7 @@ import {
   invalidateNavXP,
   modelUrlFor,
 } from "./session.js";
+import { mountAssessmentBoard } from "./leaderboard.js";
 
 export const PALETTE = [
   "#ff9f1c",
@@ -656,6 +657,7 @@ async function showList(profile) {
         </div>
         <div id="quizGrid" class="grid cards"></div>
       </div>
+      <aside class="assess-side"><section class="card" id="assessBoard"></section></aside>
     </div>`;
   ["fText", "fDiff", "fSort"].forEach((i) => ($(i).oninput = draw));
   $("fStatus").onclick = (e) => {
@@ -668,7 +670,10 @@ async function showList(profile) {
     draw();
   };
   draw();
-
+  mountAssessmentBoard(
+    $("assessBoard"),
+    [...quizzes].sort((a, b) => a.title.localeCompare(b.title)).map((z) => ({ id: z.id, title: z.title })),
+  );
 }
 
 // "Closes in 2 days" style label with an urgency level

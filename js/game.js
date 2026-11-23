@@ -1,6 +1,7 @@
 // Anatomy Sprint: a short, timed 3D identification drill. It has its own page (student/sprint.html),
 // reached from the banner on the Assessment page.
-// It is practice only: scores stay in this browser (localStorage) and never reach the gradebook or XP.
+// It is practice only: it never reaches the gradebook or XP. Personal bests and recent rounds stay in this
+// browser (localStorage); every finished round is also sent to the class leaderboard (js/leaderboard.js).
 //
 // 3D Spot: a structure is highlighted on the 3D model; pick its name from four options.
 // Distractors come from the same body system, preferring siblings in the hierarchy, so the choices
@@ -8,6 +9,7 @@
 import { loadSystems, loadAllStructures } from "./anatomy.js";
 import { esc } from "./session.js";
 import { mountScene } from "./assessment.js";
+import { mountGameBoard, submitGameScore } from "./leaderboard.js";
 
 const ROUND_MS = 60000;
 const WRONG_PENALTY_MS = 3000;
@@ -52,8 +54,10 @@ export async function mountGame(root, profile, { autostart = false, sys = "" } =
     <div id="gStage" class="g-stage" hidden></div>
     <div id="gPlay" hidden></div>
     <div id="gDone" hidden></div>
-  </div>`;
+  </div>
+  <aside class="card" id="gBoard"></aside>`;
   const $g = (id) => root.querySelector("#" + id);
+  let board = null; // leaderboard, created once the systems are known
 
   let systems, all;
   try {
@@ -79,6 +83,7 @@ export async function mountGame(root, profile, { autostart = false, sys = "" } =
     mode: "spot",
     sys: modelSystems.some((s) => s.id === sys) ? sys : modelSystems[0].id,
   };
+  board = mountGameBoard($g("gBoard"), { systemId: state.sys, systemName: sysName.get(state.sys) || "" });
 
   // ======================= menu =======================
   function drawMenu() {
@@ -116,13 +121,14 @@ export async function mountGame(root, profile, { autostart = false, sys = "" } =
         }</div>
       </div>
       <button class="btn g-start" id="gStart">Start round <kbd>Enter</kbd></button>
-      <p class="small muted g-foot">Practice only: scores stay on this device and do not affect grades or XP.</p>`;
+      <p class="small muted g-foot">Practice only: does not affect grades or XP. Your best round per system appears on the class leaderboard.</p>`;
     $g("gSys").onchange = (e) => {
       state.sys = e.target.value;
       try {
         localStorage.setItem("sprint:lastSys", state.sys);
       } catch {}
       drawMenu();
+      board?.refresh(state.sys, sysName.get(state.sys) || "");
     };
     $g("gStart").onclick = start;
   }
@@ -348,6 +354,16 @@ export async function mountGame(root, profile, { autostart = false, sys = "" } =
     rec.best = Math.max(rec.best, score);
     rec.runs = [...rec.runs, score].slice(-20);
     saveRecord(key, rec);
+    // class leaderboard: rounds where nothing was answered are not sent
+    if (run.answered)
+      submitGameScore({
+        system: state.sys,
+        mode: state.mode,
+        score,
+        correct: run.correct,
+        answered: run.answered,
+        bestStreak: run.bestStreak,
+      }).then((saved) => saved && board?.refresh());
     const acc = run.answered ? Math.round((run.correct / run.answered) * 100) : 0;
     const avg = run.times.length ? run.times.reduce((a, b) => a + b, 0) / run.times.length / 1000 : 0;
     const missed = run.missed.slice(0, 6);
