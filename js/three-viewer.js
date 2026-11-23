@@ -319,6 +319,9 @@ export function createViewer(
   const originals = new Map(); // mesh -> original material
   const modelSources = new Map(); // [CHANGE 3] key -> cache entry the model was cloned from (for reference counting)
   const markState = new Map(); // mesh -> saved material values (moved up so removeModel can clean it)
+  // X-ray (Learn mode): every mesh that is NOT selected gets its own see-through material copy
+  const xrayState = new Map(); // mesh -> original material
+  let xrayAmount = 0; // 0 = off (everything opaque) ... 1 = everything else invisible
   let destroyed = false; // [CHANGE 7] set by dispose()
   let selected = [],
     home = null,
@@ -362,6 +365,10 @@ export function createViewer(
       }),
     );
     originals.forEach((m) => {
+      m.clippingPlanes = val;
+      m.side = sideOf(m);
+    });
+    xrayState.forEach((m) => {
       m.clippingPlanes = val;
       m.side = sideOf(m);
     });
@@ -430,6 +437,11 @@ export function createViewer(
         o.material.dispose(); // highlight copy
         o.material = originals.get(o);
         originals.delete(o);
+      }
+      if (xrayState.has(o)) {
+        o.material.dispose(); // x-ray copy
+        o.material = xrayState.get(o);
+        xrayState.delete(o);
       }
       if (markState.has(o)) {
         if (o.material !== markState.get(o)) o.material.dispose(); // mark copy
@@ -510,6 +522,7 @@ export function createViewer(
         entry.users++;
         modelSources.set(key, entry);
         frameVisible();
+        if (xrayAmount > 0 && selected.length) applyXray();
         return root;
       },
       (err) => {
@@ -567,9 +580,49 @@ export function createViewer(
     // one object, an array, or null
     selected.forEach((o) => o.traverse((x) => setHighlight(x, false)));
     selected = objs ? [].concat(objs) : [];
+    applyXray(); // before highlighting, so newly selected parts get their opaque material back first
     selected.forEach((o) => o.traverse((x) => setHighlight(x, true)));
     invalidate();
   }
+
+  // ---- X-ray: fade everything except the selection. Only active while something is selected. ----
+  // Reuses each mesh's copy while the amount changes, so dragging the slider stays cheap.
+  function restoreXray(mesh) {
+    const orig = xrayState.get(mesh);
+    if (!orig) return;
+    mesh.material.dispose();
+    mesh.material = orig;
+    xrayState.delete(mesh);
+  }
+  function applyXray() {
+    const keep = new Set();
+    selected.forEach((o) => o.traverse((x) => x.isMesh && keep.add(x)));
+    const on = xrayAmount > 0 && keep.size > 0;
+    xrayState.forEach((_, mesh) => {
+      if (!on || keep.has(mesh)) restoreXray(mesh);
+    });
+    if (!on) return;
+    const opacity = 1 - xrayAmount;
+    models.forEach((root) =>
+      root.traverse((o) => {
+        if (!o.isMesh || keep.has(o) || Array.isArray(o.material)) return;
+        if (!xrayState.has(o)) {
+          const orig = o.material;
+          xrayState.set(o, orig);
+          const m = orig.clone();
+          m.clippingPlanes = orig.clippingPlanes; // keep the section cut working
+          o.material = m;
+        }
+        const m = o.material,
+          base = xrayState.get(o);
+        m.transparent = opacity < 1 || base.transparent;
+        m.opacity = opacity * (base.opacity ?? 1);
+        m.depthWrite = opacity >= 1 && base.depthWrite;
+        m.visible = opacity > 0.001; // 100%: the rest of the body disappears (and cannot be clicked)
+      }),
+    );
+  }
+  const isGhostedOut = (o) => o.material && o.material.visible === false;
 
   function pick(e) {
     const r = canvas.getBoundingClientRect();
@@ -586,6 +639,7 @@ export function createViewer(
       .find(
         (h) =>
           visibleDeep(h.object) &&
+          !isGhostedOut(h.object) &&
           !(sectionOn && sectionPlane.distanceToPoint(h.point) < 0),
       ); // ignore cut-away parts
     if (!hit) return null;
@@ -689,7 +743,7 @@ export function createViewer(
     models.forEach((root, key) => {
       if (!root.visible) return;
       root.traverse((o) => {
-        if (!o.isMesh || !visibleDeep(o)) return;
+        if (!o.isMesh || !visibleDeep(o) || isGhostedOut(o)) return;
         box.setFromObject(o);
         if (box.isEmpty()) return;
         box.getCenter(v);
@@ -929,6 +983,12 @@ export function createViewer(
     clearSelection() {
       select(null);
     },
+    // X-ray the parts that are not selected. amount: 0 (all opaque) .. 1 (others invisible)
+    setXray(amount) {
+      xrayAmount = Math.min(1, Math.max(0, Number(amount) || 0));
+      applyXray();
+    },
+    getXray: () => xrayAmount,
     // axis: "x" | "y" | "z" | null (off); t: 0..1 position across the visible models; flip keeps the other side
     setSection(axis, t = 0, flip = false) {
       if (!axis) {

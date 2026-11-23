@@ -51,6 +51,11 @@
               <div id="sysList"></div>
             </div>
           </details>
+          <div id="xray" hidden title="X-ray: fade the rest of the body so the selected part stands out">
+            <label for="xrayPos">X-ray</label
+            ><input id="xrayPos" type="range" min="0" max="100" step="1" value="25" aria-label="X-ray: how see-through the rest of the body is"
+            /><output id="xrayVal" for="xrayPos">25%</output>
+          </div>
         </div>
         <div id="viewtools">
           <button class="btn secondary" id="helpBtn" title="Help and shortcuts (H or ?)">? Help</button
@@ -83,6 +88,11 @@
             <dd>Hover over a structure</dd>
             <dt>Touch</dt>
             <dd>One finger rotates; two fingers zoom and pan</dd>
+            <dt>X-ray</dt>
+            <dd>
+              Select a part and drag the X-ray slider next to Systems: 0% shows
+              everything, 100% hides everything except the selection
+            </dd>
             <dt>Section</dt>
             <dd>
               Open Section, pick a plane and drag the slider to cut through the
@@ -97,7 +107,7 @@
             <tr><td><kbd>]</kbd> <kbd>[</kbd></td><td>Select next / previous structure</td></tr>
             <tr><td><kbd>Shift</kbd> + <kbd>]</kbd> <kbd>[</kbd></td><td>Add next / previous to selection</td></tr>
             <tr><td><kbd>F</kbd></td><td>Zoom to selection</td></tr>
-            <tr><td><kbd>I</kbd></td><td>Isolate selection</td></tr>
+            <tr><td><kbd>I</kbd></td><td>Isolate selection / show the rest again</td></tr>
             <tr><td><kbd>X</kbd> or <kbd>Del</kbd></td><td>Hide / unhide selection</td></tr>
             <tr><td><kbd>U</kbd></td><td>Show all</td></tr>
             <tr><td><kbd>C</kbd></td><td>Section (cut) panel</td></tr>
@@ -146,7 +156,7 @@
         <button class="btn secondary" id="zin" title="Zoom in (+ or E)">Zoom + <kbd>+</kbd></button
         ><button class="btn secondary" id="zout" title="Zoom out (- or Q)">Zoom - <kbd>-</kbd></button>
         <button class="btn secondary" id="hide" title="Hide or unhide the selection (X or Delete)"><span id="hideLbl">Hide</span> <kbd>X</kbd></button
-        ><button class="btn secondary" id="iso" title="Isolate selection (I)">Isolate <kbd>I</kbd></button>
+        ><button class="btn secondary" id="iso" title="Isolate the selection, or show the rest again (I)"><span id="isoLbl">Isolate</span> <kbd>I</kbd></button>
         <button class="btn secondary" id="show" title="Show all (U)">Show all <kbd>U</kbd></button
         ><button class="btn secondary" id="secBtn" title="Section panel (C)">&#9988; Section <kbd>C</kbd></button
         ><button class="btn secondary" id="resetAll" title="Reset view: front camera, collapse the hierarchy (R)">&#8634; Reset <kbd>R</kbd></button
@@ -392,7 +402,49 @@
         renderActive();
         showSelection();
         updateHideLabel();
+        updateXray();
         return n;
+      }
+
+      // ---- X-ray slider: appears while something is selected; fades the rest of the body ----
+      const XRAY_DEFAULT = 25;
+      let xrayShown = false;
+      function updateXray() {
+        const on = selRows.length > 0;
+        if (on && !xrayShown) setXrayValue(XRAY_DEFAULT); // every fresh selection starts at the default
+        xrayShown = on;
+        $("xray").hidden = !on;
+        viewer.setXray(on ? $("xrayPos").value / 100 : 0);
+      }
+      function setXrayValue(v) {
+        $("xrayPos").value = v;
+        $("xrayVal").textContent = `${$("xrayPos").value}%`;
+      }
+      $("xrayPos").addEventListener("input", () => {
+        setXrayValue($("xrayPos").value);
+        if (selRows.length) viewer.setXray($("xrayPos").value / 100);
+      });
+
+      // ---- Isolate works like Hide: press again (or the same circle) to show everything again ----
+      let isolatedIds = null; // Set of row ids currently isolated, or null
+      function setIsolated(rows) {
+        isolatedIds = rows && rows.length ? new Set(rows.map((r) => r.id)) : null;
+        $("isoLbl").textContent = isolatedIds ? "Show rest" : "Isolate";
+        $("iso").classList.toggle("on", !!isolatedIds);
+        document
+          .querySelectorAll("#tree .node.isolated")
+          .forEach((n) => n.classList.remove("isolated"));
+        isolatedIds?.forEach((id) => nodeEl(id)?.classList.add("isolated"));
+      }
+      function isolateSelection() {
+        viewer.isolateSelected();
+        setIsolated(selRows);
+      }
+      // Undo any isolate but keep the parts the student hid
+      function showEverything() {
+        viewer.showAll();
+        reapplyHidden();
+        setIsolated(null);
       }
       const toggleRow = (row, additive) =>
         !additive
@@ -579,16 +631,13 @@
           await ensureModels([row.system_id]); // its model may still be downloading
         }
         if (hiddenRows.has(row.id)) setRowsVisible([row], true); // clicking a hidden part brings it back
-        if (!additive) {
-          viewer.showAll(); // undo any isolate...
-          reapplyHidden(); // ...but keep the parts the student hid
-        }
+        if (!additive) showEverything(); // undo any isolate, keep the parts the student hid
         const n = setSelection(toggleRow(row, additive));
         if (!n && selRows.length)
           $("info").innerHTML =
             '<p class="msg error">This structure was not found in the 3D model.</p>';
         if (isolate)
-          viewer.isolateSelected(); // hides everything else and smoothly zooms to the selection
+          isolateSelection(); // hides everything else and smoothly zooms to the selection
         else focusIfAuto();
         if (!fromHistory && !additive) pushHistory(row);
       }
@@ -653,8 +702,9 @@
           node.classList.toggle("off", v === false);
           updateHideLabel();
         } else if (e.target.closest(".iso")) {
-          if (selRows.length > 1 && selRows.some((r) => r.id === row.id))
-            viewer.isolateSelected(); // whole multi-selection
+          if (isolatedIds?.has(row.id)) showEverything(); // second click: bring the rest back
+          else if (selRows.length > 1 && selRows.some((r) => r.id === row.id))
+            isolateSelection(); // whole multi-selection
           else selectRow(row, { isolate: true, additive });
         } else selectRow(row, { additive });
       });
@@ -726,12 +776,16 @@
         setRowsVisible(selRows, allHidden);
       };
       $("iso").onclick = () => {
+        if (isolatedIds) {
+          showEverything(); // second press: show the rest again
+          return;
+        }
         if (!selRows.length) {
           $("info").innerHTML =
             '<p class="msg">Select one or more parts first (Ctrl/Shift + click to add more), then press Isolate.</p>';
           return;
         }
-        viewer.isolateSelected();
+        isolateSelection();
       };
       const clearOff = () =>
         document
@@ -739,6 +793,7 @@
           .forEach((l) => l.classList.remove("off"));
       $("show").onclick = () => {
         viewer.showAll();
+        setIsolated(null);
         hiddenRows.clear();
         clearOff();
         updateHideLabel();
@@ -751,6 +806,7 @@
         closePanels();
         setVisibleSystems(defaultSystems());
         viewer.showAll();
+        setIsolated(null);
         hiddenRows.clear();
         clearOff();
         setSelection([]);
@@ -773,7 +829,7 @@
         const prev = history[history.length - 1];
         if (prev) selectRow(prev, { fromHistory: true });
         else {
-          viewer.showAll();
+          showEverything();
           setSelection([]);
         }
       };
